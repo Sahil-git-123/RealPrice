@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#f4f0e6"/>
+<meta name="description" content="RealPrice — No fluff. Just the truth about prices and places."/>
+<title>RealPrice — The Ledger of Truth</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{font-family:'Courier Prime',monospace;background:#ece5d3;color:#2b2620;overflow-x:hidden;}
+input,select,button,textarea{font-family:'Courier Prime',monospace;}
+::-webkit-scrollbar{width:8px;}
+::-webkit-scrollbar-track{background:#ece5d3;}
+::-webkit-scrollbar-thumb{background:#c4b896;border-radius:0;}
+a{text-decoration:none;color:inherit;}
+.mono{font-family:'Space Mono',monospace;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes stampIn{0%{opacity:0;transform:scale(2.5) rotate(-18deg);}60%{opacity:1;transform:scale(.9) rotate(-8deg);}80%{transform:scale(1.05) rotate(-7deg);}100%{opacity:1;transform:scale(1) rotate(-8deg);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scrollMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes receiptRise{0%{opacity:0;transform:perspective(900px) rotateX(40deg) translateY(60px) scale(.92);}60%{transform:perspective(900px) rotateX(-4deg) translateY(-8px) scale(1.01);}100%{opacity:1;transform:perspective(900px) rotateX(0deg) translateY(0) scale(1);}}
+.fade{animation:fadeUp .4s ease both;}
+.stamp{animation:stampIn .55s cubic-bezier(.2,1.4,.5,1) both;}
+.receipt-rise{animation:receiptRise .7s cubic-bezier(.2,1.2,.4,1) both;}
+.paper{background:#faf6ea;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(43,38,32,.04) 28px);border:1px solid #d8cda8;box-shadow:3px 4px 0 rgba(43,38,32,.1),0 1px 3px rgba(43,38,32,.06);position:relative;}
+.tilt-card{transform-style:preserve-3d;transition:transform .1s ease,box-shadow .15s ease;will-change:transform;}
+.tilt-card:hover{box-shadow:8px 12px 28px rgba(43,38,32,.18),3px 4px 0 rgba(43,38,32,.1)!important;}
+.btn-stamp{font-family:'Special Elite',monospace;background:#1f1a14;color:#f4f0e6;border:2px solid #1f1a14;padding:14px 30px;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;box-shadow:4px 4px 0 #c4392a;}
+.btn-stamp:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #c4392a;}
+.btn-stamp:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #c4392a;}
+.btn-ghost{font-family:'Special Elite',monospace;background:transparent;color:#1f1a14;border:2px solid #1f1a14;padding:13px 26px;font-size:14px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+.btn-ghost:hover{background:#1f1a14;color:#f4f0e6;}
+.ledger-input{width:100%;padding:11px 13px;font-size:14px;border:none;border-bottom:2px solid #2b2620;background:transparent;color:#1f1a14;outline:none;font-family:'Courier Prime',monospace;}
+.ledger-input:focus{border-bottom-color:#c4392a;background:rgba(196,57,42,.03);}
+.perf{background-image:radial-gradient(circle,#ece5d3 3px,transparent 3.5px);background-size:16px 16px;background-position:0 -8px;height:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+const DEMO_PRICES={
+  chai:{verdict:"RIPPED",price_range:"₹10–25",trend:"rising",summary:"You paid well over the odds. A cutting chai anywhere in Mumbai should run ₹10–25. Anything above ₹40 is tourist pricing or AC-room markup.",details:"Spikes happen near stations, malls, and air-conditioned cafés. Street stalls remain the honest benchmark.",tip:"Walk two minutes from any mall or station and the price halves. Ask before you sip."},
+  auto:{verdict:"FAIR",price_range:"₹25–80",trend:"stable",summary:"Mumbai auto fares are metered and regulated. For a 3km ride, ₹25–80 is within range. This checks out.",details:"Night surcharge (25%) applies post-midnight. Refusing the meter is illegal — always insist on it.",tip:"Rapido or Ola Auto offer fixed pricing if drivers keep dodging the meter."},
+  biryani:{verdict:"FAIR",price_range:"₹120–300",trend:"rising",summary:"Biryani pricing spans a wide range — dhabas ₹120–180, mid-range ₹200–300, premium ₹400+. Filed under fair.",details:"Delivery platforms mark up 20–30% over dine-in pricing.",tip:"Call the restaurant directly if possible — skips the platform commission."},
+  petrol:{verdict:"FAIR",price_range:"₹104–106/L",trend:"stable",summary:"Petrol is government-regulated across Mumbai pumps — currently ₹104–106/litre. Filed as fair, no objection.",details:"Prices revise daily at 6am based on crude oil and exchange rates.",tip:"Always confirm the meter resets to zero before fueling."},
+  coffee:{verdict:"RIPPED",price_range:"₹80–150",trend:"rising",summary:"Cappuccino runs ₹80 at CCD to ₹250+ at Starbucks. Anything above ₹200 at a non-premium venue is an overcharge on record.",details:"Specialty roasters justify premiums through bean quality. Chain markups generally don't.",tip:"Subko, Slay Coffee, and Third Wave Coffee deliver better quality for less."},
+  cab:{verdict:"FAIR",price_range:"₹80–180",trend:"rising",summary:"A 5km Ola/Uber ride normally runs ₹80–150, surge pushing to ₹180–250 at peak hours. Within the fair column.",details:"Surge applies during rain, rush hour, and late nights.",tip:"Cross-check Ola, Uber, and Rapido before booking — rates vary up to 30%."},
+  default:{verdict:"FAIR",price_range:"Varies",trend:"stable",summary:"Based on general ledger data, this falls within a fair range for the category. No major objection filed.",details:"For a sharper ruling, specify the exact item and location.",tip:"Compare at least two sources before settling any transaction."},
+};
+const DEMO_VIBES={
+  starbucks:{verdict:"MIXED",score:6,summary:"Consistent, yes. Honest pricing, no. ₹400 for a latte you can get better elsewhere for ₹150 is a lifestyle surcharge. Filed as mixed.",details:"Praise: ambience, reliable WiFi. Complaints: overpriced, overly sweet.",tip:"Pay for the seat and AC, not the coffee.",comparison:"Blue Tokai and Subko deliver better coffee at 60% of the cost."},
+  mcdonald:{verdict:"LEGIT",score:7,summary:"McDonald's India delivers on its promise — consistent, fairly priced, the McAloo Tikki earned its reputation honestly. Verdict: legit.",details:"Praise: fast, clean, reliable value. Complaints: smaller portions than international.",tip:"McSaver combos are best value. Dine-in beats delivery freshness.",comparison:"Burger King wins on price; KFC wins on chicken variety."},
+  taj:{verdict:"LEGIT",score:9,summary:"The Taj Mahal Palace earns every rupee. Service, heritage, and execution are genuinely world-class. Full value confirmed.",details:"Praise: flawless service, architecture, F&B quality. Complaints: prices that sting.",tip:"Sea Lounge afternoon tea is the best-value luxury experience in the building.",comparison:"The Oberoi and ITC Grand Central compare well, sometimes at better rates."},
+  social:{verdict:"LEGIT",score:7,summary:"Social earns its keep on vibe — solid cocktails, decent food, a crowd that makes the evening work. Reliable for a casual night out.",details:"Praise: cocktails, atmosphere, group-friendly. Complaints: food inconsistency, weekend overcrowding.",tip:"Visit weekday evenings for the better experience.",comparison:"Farzi Café is more elevated; Bombay Canteen wins on food."},
+  default:{verdict:"MIXED",score:6,summary:"Signals on file are mixed. Customer experience varies by timing and expectation. No sharp ruling possible with current evidence.",details:"Insufficient specific data filed. Specify the business name more precisely.",tip:"Check reviews from the last 30 days before visiting anywhere new.",comparison:"Cross-reference against 2-3 similar venues nearby."},
+};
+const DEMO_PREBUY={
+  low:{verdict:"DEAL",recommendation:"PAY",one_liner:"Approved without objection. This is below market — pay before they reconsider.",negotiation_tip:"None required — already filed below market rate.",alternative:"You will not find better filed anywhere nearby."},
+  fair:{verdict:"FAIR",recommendation:"NEGOTIATE",one_liner:"Fair on the books, but the ledger always has room for negotiation.",negotiation_tip:"Say: 'Bhai, thoda kam karo — cash de raha hoon.' Works in 6 of 10 cases on file.",alternative:"One round of comparison shopping may yield 10-15% savings."},
+  high:{verdict:"RIPPED",recommendation:"WALK_AWAY",one_liner:"Objection filed. This rate runs 40-60% over the documented market average.",negotiation_tip:"Counter at 50% of the ask and settle in the middle ground.",alternative:"Walk with confidence — they often call you back with a fairer number."},
+};
+const TRENDING=[
+  {item:"Cutting chai · ₹60",location:"Bandra, Mumbai",verdict:"RIPPED",ago:"2m ago"},
+  {item:"Taj Lands End",location:"Mumbai",verdict:"LEGIT",ago:"5m ago"},
+  {item:"Auto ride 3km · ₹55",location:"Andheri, Mumbai",verdict:"FAIR",ago:"9m ago"},
+  {item:"Pizza · $22",location:"Times Square, NYC",verdict:"RIPPED",ago:"14m ago"},
+  {item:"Haircut · ₹300",location:"Indiranagar, Bengaluru",verdict:"DEAL",ago:"21m ago"},
+  {item:"Cappuccino · AED 28",location:"Dubai Mall",verdict:"FAIR",ago:"27m ago"},
+];
+const CURRENCIES=["INR","USD","GBP","EUR","AED","SGD","AUD","CAD","JPY","CNY","MYR","THB","ZAR","BRL","MXN"];
+const CATEGORIES=["Food & Drink","Transport","Accommodation","Shopping","Entertainment","Health & Beauty","Services","Electronics","Groceries","Other"];
+const BIZ_TYPES=["Restaurant","Café","Hotel","Street Vendor","Bar / Pub","Salon / Spa","Retail Store","Gym","Hospital / Clinic","Online Store","Other"];
+const REVIEW_SRC=["All available","Google","Zomato","TripAdvisor","Yelp","Swiggy","MagicPin","Justdial","Instagram"];
+const QUICK=[
+  {label:"Chai",item:"Cutting chai",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"60"},
+  {label:"Auto",item:"Auto rickshaw 3km",cat:"Transport",cur:"INR",loc:"Mumbai",price:"80"},
+  {label:"Biryani",item:"Chicken biryani",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"250"},
+  {label:"Coffee",item:"Cappuccino",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"180"},
+  {label:"Cab",item:"Ola/Uber cab 5km",cat:"Transport",cur:"INR",loc:"Mumbai",price:"150"},
+  {label:"Petrol",item:"Petrol 1 litre",cat:"Other",cur:"INR",loc:"Mumbai",price:"105"},
+];
+const VC={
+  DEAL:{label:"DEAL",color:"#1a5c34",stamp:"APPROVED"},
+  FAIR:{label:"FAIR",color:"#8a6200",stamp:"NOTED"},
+  RIPPED:{label:"RIPPED OFF",color:"#c4392a",stamp:"REJECTED"},
+  LEGIT:{label:"LEGIT",color:"#1a5c34",stamp:"APPROVED"},
+  MIXED:{label:"MIXED BAG",color:"#8a6200",stamp:"NOTED"},
+  OVERHYPED:{label:"OVERHYPED",color:"#c4392a",stamp:"REJECTED"},
+};
+const REC={
+  PAY:{color:"#1a5c34",label:"PAY IT",stamp:"APPROVED"},
+  NEGOTIATE:{color:"#8a6200",label:"NEGOTIATE",stamp:"PENDING"},
+  WALK_AWAY:{color:"#c4392a",label:"WALK AWAY",stamp:"REJECTED"},
+};
+const TRENDS={rising:"↑ RISING",stable:"→ STABLE",falling:"↓ FALLING"};
+
+const store={
+  get:(k,fb)=>{try{return JSON.parse(localStorage.getItem(k))??fb}catch{return fb}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},
+};
+const getDemoPrice=(item,price,cur)=>{
+  const k=Object.keys(DEMO_PRICES).find(x=>item.toLowerCase().includes(x));
+  const base=DEMO_PRICES[k]||DEMO_PRICES.default;
+  if(cur==="INR"&&price&&k){
+    const p=parseFloat(price);
+    const ranges={chai:[25,50],auto:[60,100],biryani:[180,300],coffee:[150,200],cab:[120,200],petrol:[103,107]};
+    const r=ranges[k];
+    if(r)return{...base,verdict:p<r[0]?"DEAL":p<=r[1]?"FAIR":"RIPPED"};
+  }
+  return base;
+};
+const getDemoVibe=biz=>{const k=Object.keys(DEMO_VIBES).find(x=>biz.toLowerCase().includes(x));return DEMO_VIBES[k]||DEMO_VIBES.default;};
+const getDemoPreBuy=(ask,item,cur)=>{
+  const p=parseFloat(ask);
+  const k=Object.keys(DEMO_PRICES).find(x=>item.toLowerCase().includes(x));
+  if(k&&cur==="INR"){
+    const ranges={chai:[25,50],auto:[60,100],biryani:[180,300],coffee:[150,200],cab:[120,200]};
+    const r=ranges[k];
+    if(r)return{...(p<r[0]?DEMO_PREBUY.low:p<=r[1]?DEMO_PREBUY.fair:DEMO_PREBUY.high),price_range:`₹${r[0]}–${r[1]}`};
+  }
+  return{...DEMO_PREBUY.fair,price_range:"Market rate varies"};
+};
+
+// ── 3D TILT ───────────────────────────────────────────────────────────────
+function TiltCard({children,style}){
+  const ref=useRef(null);
+  const onMove=useCallback(e=>{
+    const el=ref.current;if(!el)return;
+    const r=el.getBoundingClientRect();
+    const x=e.clientX-r.left,y=e.clientY-r.top;
+    const rx=-((y-r.height/2)/r.height)*10,ry=((x-r.width/2)/r.width)*12;
+    el.style.transform=`perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.02)`;
+  },[]);
+  const onLeave=useCallback(()=>{if(ref.current)ref.current.style.transform="perspective(800px) rotateX(0) rotateY(0) scale(1)";},[]);
+  return <div ref={ref} className="tilt-card paper" onMouseMove={onMove} onMouseLeave={onLeave} style={{transition:"transform .12s ease",...style}}>
+    <div style={{transform:"translateZ(14px)"}}>{children}</div>
+  </div>;
+}
+
+// ── PARALLAX STACK ────────────────────────────────────────────────────────
+function ParallaxStack(){
+  const [sy,setSy]=useState(0);
+  useEffect(()=>{const h=()=>setSy(window.scrollY);window.addEventListener("scroll",h,{passive:true});return()=>window.removeEventListener("scroll",h);},[]);
+  const docs=[
+    {r:-8,x:-60,y:0,z:1,label:"#4821",verdict:"RIPPED",item:"Cappuccino · CCD Bandra",amt:"INR 280"},
+    {r:5,x:50,y:-20,z:2,label:"#4822",verdict:"LEGIT",item:"Auto ride · Andheri",amt:"INR 65"},
+    {r:-2,x:10,y:-40,z:3,label:"#4823",verdict:"FAIR",item:"Biryani · Mohammed Ali Rd",amt:"INR 220"},
+    {r:9,x:-30,y:-60,z:4,label:"#4824",verdict:"RIPPED",item:"Hotel · Juhu Beach",amt:"USD 180"},
+    {r:-5,x:40,y:-80,z:5,label:"#4825",verdict:"DEAL",item:"Haircut · Kandivali",amt:"INR 150"},
+  ];
+  const sp=[0.04,0.07,0.1,0.14,0.18];
+  return <div style={{position:"relative",height:340,perspective:"1000px"}}>
+    {docs.map((d,i)=>{
+      const v=VC[d.verdict]||{stamp:"FILED",color:"#555"};
+      return <div key={i} style={{
+        position:"absolute",top:"50%",left:"50%",width:220,
+        transform:`translate(calc(-50% + ${d.x}px),calc(-50% + ${d.y-sy*sp[i]}px)) rotate(${d.r}deg)`,
+        zIndex:d.z,transition:"transform .05s linear",
+        background:"#faf6ea",
+        backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(43,38,32,.05) 20px)",
+        border:"1px solid #d8cda8",
+        boxShadow:`${2+i}px ${3+i}px ${6+i*2}px rgba(43,38,32,${.07+i*.02})`,
+        padding:"14px 16px",borderRadius:2,
+      }}>
+        <p className="mono" style={{fontSize:8,color:"#8a7d5c",letterSpacing:"2px",marginBottom:6}}>RECEIPT {d.label}</p>
+        <p style={{fontSize:11,color:"#2b2620",fontWeight:700,marginBottom:4}}>{d.item}</p>
+        <p className="mono" style={{fontSize:10,color:"#5a5142",marginBottom:10}}>{d.amt}</p>
+        <div style={{display:"inline-block",border:`2px solid ${v.color}`,color:v.color,fontSize:9,padding:"2px 8px",letterSpacing:"1.5px",transform:"rotate(-4deg)",fontFamily:"'Special Elite',monospace",opacity:.9}}>{v.stamp}</div>
+        <div style={{position:"absolute",bottom:8,right:10,fontSize:8,color:"#c4b896"}} className="mono">REALPRICE™</div>
+      </div>;
+    })}
+  </div>;
+}
+
+// ── COMPONENTS ────────────────────────────────────────────────────────────
+function Stamp({verdict,big}){
+  const v=VC[verdict]||{stamp:"FILED",color:"#555"};
+  return <div className="stamp" style={{display:"inline-block",border:`${big?4:3}px solid ${v.color}`,color:v.color,fontFamily:"'Special Elite',monospace",fontSize:big?22:14,padding:big?"8px 20px":"4px 12px",letterSpacing:"2px",transform:"rotate(-6deg)",textTransform:"uppercase",borderRadius:4,opacity:.92,background:"rgba(255,255,255,.4)"}}>{v.stamp}</div>;
+}
+function Chip({options,value,onChange}){
+  return <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+    {options.map(o=><button key={o} onClick={()=>onChange(o)} style={{padding:"6px 12px",fontSize:11,cursor:"pointer",border:value===o?"2px solid #1f1a14":"1.5px solid #c4b896",background:value===o?"#1f1a14":"transparent",color:value===o?"#f4f0e6":"#5a5142",fontWeight:value===o?700:400,fontFamily:"'Courier Prime',monospace",textTransform:"uppercase",letterSpacing:".5px"}}>{o}</button>)}
+  </div>;
+}
+function Spinner(){return <div style={{width:24,height:24,border:"3px solid #d8cda8",borderTop:"3px solid #c4392a",borderRadius:"50%",animation:"spin .7s linear infinite",margin:"0 auto"}}/>;}
+
+function ResultReceipt({result,mode,onShare,tips,onTip,copied,query}){
+  const [t,setT]=useState("");
+  if(!result)return null;
+  const v=VC[result.verdict]||{stamp:"FILED",color:"#555"};
+  const now=new Date();
+  return <div className="receipt-rise" style={{marginTop:28,background:"#faf6ea",backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(43,38,32,.04) 28px)",border:"1px solid #d8cda8",borderRadius:2,boxShadow:"6px 8px 32px rgba(43,38,32,.18),3px 4px 0 rgba(43,38,32,.08)",padding:"28px 26px",position:"relative"}}>
+    <div style={{position:"absolute",top:-1,left:0,right:0,height:10,background:"linear-gradient(135deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px,linear-gradient(45deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px",backgroundColor:"#e8e0c8"}}/>
+    <div style={{position:"absolute",top:14,right:18,fontSize:18,opacity:.4}}>✂️</div>
+    <div style={{textAlign:"center",marginBottom:18,borderBottom:"2px dashed #c4b896",paddingBottom:16}}>
+      <p className="mono" style={{fontSize:10,letterSpacing:"3px",color:"#8a7d5c",marginBottom:6}}>★ ★ ★ REALPRICE LEDGER ★ ★ ★</p>
+      <p style={{fontFamily:"'Special Elite',monospace",fontSize:16,color:"#1f1a14"}}>OFFICIAL VERDICT SLIP</p>
+      <p className="mono" style={{fontSize:10,color:"#8a7d5c",marginTop:4}}>{now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})} · {now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
+    </div>
+    {query&&<div style={{marginBottom:16,fontSize:13,color:"#5a5142",lineHeight:1.8}} className="mono">
+      <p>ITEM ............... {query.item}</p>
+      <p>LOCATION ........... {query.loc}</p>
+      {query.price&&<p>AMOUNT FILED ........ {query.price}</p>}
+    </div>}
+    <div style={{display:"flex",justifyContent:"center",margin:"20px 0"}}><Stamp verdict={result.verdict} big/></div>
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:16}}>
+      {result.score!==undefined&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px",fontWeight:700}}>SCORE: {result.score}/10</span>}
+      {result.price_range&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>MARKET: {result.price_range}</span>}
+      {result.trend&&TRENDS[result.trend]&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>{TRENDS[result.trend]}</span>}
+    </div>
+    <p style={{fontSize:14,color:"#2b2620",lineHeight:1.8,textAlign:"center",fontStyle:"italic",marginBottom:18,padding:"0 8px"}}>"{result.summary}"</p>
+    <div className="perf" style={{margin:"4px -26px 18px"}}/>
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {result.details&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ CASE NOTES</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.details}</p></div>}
+      {result.tip&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ FILED RECOMMENDATION</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.tip}</p></div>}
+      {result.comparison&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ COMPARABLE FILINGS</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.comparison}</p></div>}
+      {tips.length>0&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>▸ WITNESS STATEMENTS ({tips.length})</p>
+        {tips.map((tp,i)=><p key={i} style={{fontSize:13,color:"#5a5142",lineHeight:1.7,marginBottom:4}}>#{i+1} — {tp.text} <span className="mono" style={{fontSize:10,color:"#aaa"}}>[{tp.time}]</span></p>)}
+      </div>}
+    </div>
+    <div className="perf" style={{margin:"18px -26px"}}/>
+    <div style={{display:"flex",gap:8,marginBottom:10}}>
+      <input value={t} onChange={e=>setT(e.target.value)} placeholder="Add your witness statement…" onKeyDown={e=>{if(e.key==="Enter"&&t.trim()){onTip(t);setT("");}}} className="ledger-input" style={{flex:1}}/>
+      <button onClick={()=>{if(t.trim()){onTip(t);setT("");}}} style={{padding:"8px 16px",fontSize:12,fontWeight:700,border:"2px solid #1f1a14",background:"#1f1a14",color:"#f4f0e6",cursor:"pointer",textTransform:"uppercase",letterSpacing:"1px"}}>File</button>
+    </div>
+    <button onClick={onShare} className="btn-ghost" style={{width:"100%",padding:"11px 0",fontSize:13}}>{copied?"✓ COPIED TO CLIPBOARD":"⎘ SHARE THIS VERDICT"}</button>
+  </div>;
+}
+
+function Navbar({onTryNow}){
+  const [sc,setSc]=useState(false);
+  useEffect(()=>{const h=()=>setSc(window.scrollY>20);window.addEventListener("scroll",h);return()=>window.removeEventListener("scroll",h);},[]);
+  return <nav style={{position:"sticky",top:0,zIndex:100,background:sc?"#f4f0e6":"transparent",borderBottom:sc?"2px solid #1f1a14":"2px solid transparent",padding:"0 24px",transition:"all .25s"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:68}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontFamily:"'Special Elite',monospace",fontSize:21,color:"#1f1a14"}}>RealPrice™</span>
+        <span className="mono" style={{fontSize:9,border:"1.5px solid #c4392a",color:"#c4392a",padding:"2px 7px",letterSpacing:"1px"}}>DEMO ED.</span>
+      </div>
+      <button onClick={onTryNow} className="btn-stamp" style={{padding:"9px 20px",fontSize:12,boxShadow:"3px 3px 0 #c4392a"}}>Get Verdict →</button>
+    </div>
+  </nav>;
+}
+
+function Hero({onTryNow}){
+  return <section style={{padding:"60px 24px 70px",position:"relative",borderBottom:"2px dashed #c4b896",overflow:"hidden"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:48,alignItems:"center"}}>
+      <div>
+        <p className="mono" style={{fontSize:11,letterSpacing:"4px",color:"#8a7d5c",marginBottom:18}}>★ EST. 2025 · THE PUBLIC LEDGER OF HONEST PRICING ★</p>
+        <h1 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(32px,5.5vw,58px)",lineHeight:1.2,color:"#1f1a14",marginBottom:22}}>Did you pay fair?<br/>Or get <span style={{color:"#c4392a"}}>robbed?</span></h1>
+        <p style={{fontSize:"clamp(14px,2vw,16px)",color:"#5a5142",lineHeight:1.8,maxWidth:440,marginBottom:36,fontStyle:"italic"}}>"RealPrice files an honest verdict on every rupee, dollar, and dirham you spend. No fluff. No PR-speak. Just the receipt of truth."</p>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          <button onClick={onTryNow} className="btn-stamp" style={{fontSize:14,padding:"14px 28px"}}>File a Verdict →</button>
+          <a href="#how-it-works"><button className="btn-ghost" style={{fontSize:13,padding:"13px 24px"}}>How it works</button></a>
+        </div>
+        <div style={{display:"flex",marginTop:48,flexWrap:"wrap"}}>
+          {[{v:"50,000+",l:"VERDICTS FILED"},{v:"120+",l:"CITIES COVERED"},{v:"4.8/5",l:"PUBLIC RATING"},{v:"FREE",l:"ALWAYS WILL BE"}].map((s,i)=>
+            <div key={i} style={{padding:"0 20px",borderRight:i<3?"1.5px dashed #c4b896":"none"}}>
+              <p style={{fontFamily:"'Special Elite',monospace",fontSize:20,color:"#1f1a14"}}>{s.v}</p>
+              <p className="mono" style={{fontSize:9,color:"#8a7d5c",letterSpacing:"1px",marginTop:2}}>{s.l}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"center"}}><ParallaxStack/></div>
+    </div>
+  </section>;
+}
+
+function Ticker(){
+  const items=[...TRENDING,...TRENDING];
+  return <div style={{background:"#1f1a14",padding:"14px 0",overflow:"hidden",borderBottom:"2px solid #c4392a"}}>
+    <div style={{display:"flex",width:"max-content",animation:"scrollMarquee 35s linear infinite"}}>
+      {items.map((t,i)=>{const v=VC[t.verdict]||{stamp:"FILED"};return <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"0 28px",borderRight:"1px solid rgba(255,255,255,.15)",whiteSpace:"nowrap"}}>
+        <span className="mono" style={{fontSize:12,color:"#f4f0e6"}}>{t.item} <span style={{color:"#8a7d5c"}}>— {t.location}</span></span>
+        <span className="mono" style={{fontSize:11,fontWeight:700,letterSpacing:"1px",color:v.color==="#1a5c34"?"#6ee7a8":v.color==="#c4392a"?"#fca5a5":"#fcd34d"}}>[{v.stamp}]</span>
+      </div>;})}
+    </div>
+  </div>;
+}
+
+function HowItWorks(){
+  const steps=[
+    {n:"CASE 01",title:"File your claim",desc:"Tell the ledger what you paid (or what they're asking), where, and for what. Every detail goes on record."},
+    {n:"CASE 02",title:"Evidence is gathered",desc:"We cross-reference live market data — like a clerk checking the books before ruling."},
+    {n:"CASE 03",title:"The verdict is stamped",desc:"DEAL. FAIR. RIPPED OFF. No appeals process — just the unfiltered truth, delivered fast."},
+  ];
+  return <section id="how-it-works" style={{padding:"70px 24px",borderBottom:"2px dashed #c4b896"}}>
+    <div style={{maxWidth:920,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:48}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>HOW THE LEDGER WORKS</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(24px,4vw,36px)",color:"#1f1a14"}}>Three steps to a verdict</h2>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
+        {steps.map((s,i)=><TiltCard key={i} style={{padding:"28px 22px"}}>
+          <p className="mono" style={{fontSize:10,color:"#c4392a",letterSpacing:"2px",marginBottom:14,fontWeight:700}}>{s.n}</p>
+          <h3 style={{fontSize:16,color:"#1f1a14",marginBottom:10,fontFamily:"'Courier Prime',monospace",fontWeight:700}}>{s.title}</h3>
+          <p style={{fontSize:13,color:"#5a5142",lineHeight:1.8}}>{s.desc}</p>
+        </TiltCard>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function Features(){
+  const f=[
+    {tag:"EXHIBIT A",title:"Price Check",desc:"Already paid or about to? We benchmark the price and rule: fair or foul — before or after the transaction."},
+    {tag:"EXHIBIT B",title:"Vibe Check",desc:"Is the place worth the hype? We file an honest character reference based on real review signals."},
+    {tag:"EXHIBIT C",title:"Spending Ledger",desc:"Your full case history — every verdict on record, with spending patterns laid bare."},
+    {tag:"EXHIBIT D",title:"History",desc:"Every case you've filed, one tap to re-run. Your personal record of honest verdicts."},
+  ];
+  return <section id="features" style={{padding:"70px 24px",borderBottom:"2px dashed #c4b896"}}>
+    <div style={{maxWidth:1000,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:48}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>THE FULL DOCKET</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(24px,4vw,36px)",color:"#1f1a14"}}>Four ways to know the truth</h2>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:20}}>
+        {f.map((x,i)=><TiltCard key={i} style={{padding:"24px 20px"}}>
+          <p className="mono" style={{fontSize:10,color:"#c4392a",letterSpacing:"2px",marginBottom:12,fontWeight:700}}>{x.tag}</p>
+          <h3 style={{fontSize:16,color:"#1f1a14",marginBottom:10,fontFamily:"'Courier Prime',monospace",fontWeight:700}}>{x.title}</h3>
+          <p style={{fontSize:13,color:"#5a5142",lineHeight:1.8}}>{x.desc}</p>
+        </TiltCard>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function AppTool(){
+  const [tab,setTab]=useState(0);
+  const [priceMode,setPriceMode]=useState("paid");
+  const [loading,setLoading]=useState(false);
+  const [result,setResult]=useState(null);
+  const [pbResult,setPbResult]=useState(null);
+  const [copied,setCopied]=useState(false);
+  const [pbCopied,setPbCopied]=useState(false);
+  const [tips,setTips]=useState([]);
+  const [rKey,setRKey]=useState(null);
+  const [history,setHistory]=useState(()=>store.get("rp_h5",[]));
+  const [lastQuery,setLastQuery]=useState(null);
+
+  const [item,setItem]=useState(""); const [cat,setCat]=useState("Food & Drink");
+  const [loc,setLoc]=useState(""); const [price,setPrice]=useState("");
+  const [cur,setCur]=useState("INR"); const [qty,setQty]=useState("1"); const [ctx,setCtx]=useState("");
+  const [pbLoc,setPbLoc]=useState(""); const [pbAsk,setPbAsk]=useState(""); const [pbCur,setPbCur]=useState("INR");
+  const [biz,setBiz]=useState(""); const [city,setCity]=useState("");
+  const [bType,setBType]=useState("Restaurant"); const [rSrc,setRSrc]=useState("All available");
+
+  useEffect(()=>{if(rKey)setTips(store.get(`rp_t5_${rKey}`,[]));else setTips([]);},[rKey]);
+  const saveH=e=>{const n=[e,...history].slice(0,30);setHistory(n);store.set("rp_h5",n);};
+  const addTip=t=>{if(!rKey)return;const tp={text:t,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};const u=[...tips,tp];setTips(u);store.set(`rp_t5_${rKey}`,u);};
+
+  const runCheck=()=>{
+    if(!item||!loc||!price)return;
+    setLoading(true);setResult(null);setRKey(null);
+    const total=(parseFloat(price)*parseFloat(qty||1)).toFixed(2);
+    const k=`price_${item}_${loc}`.replace(/\s+/g,"_").toLowerCase().slice(0,40);
+    setTimeout(()=>{
+      const data=getDemoPrice(item,price,cur);
+      setResult(data);setRKey(k);
+      setLastQuery({item,loc,price:`${cur} ${total}`});
+      saveH({label:`${item} · ${cur}${total}`,location:loc,verdict:data.verdict,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),mode:"price",raw:{item,location:loc,price,currency:cur,qty,category:cat}});
+      setLoading(false);
+    },1500);
+  };
+
+  const runPreBuy=()=>{
+    if(!item||!pbLoc||!pbAsk)return;
+    setLoading(true);setPbResult(null);
+    setTimeout(()=>{setPbResult(getDemoPreBuy(pbAsk,item,pbCur));setLoading(false);},1300);
+  };
+
+  const runVibeCheck=()=>{
+    if(!biz||!city)return;
+    setLoading(true);setResult(null);setRKey(null);
+    const k=`vibe_${biz}_${city}`.replace(/\s+/g,"_").toLowerCase().slice(0,40);
+    setTimeout(()=>{
+      const data=getDemoVibe(biz);
+      setResult(data);setRKey(k);
+      setLastQuery({item:biz,loc:city,price:null});
+      saveH({label:`${biz} · ${city}`,location:city,verdict:data.verdict,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),mode:"vibe",raw:{bizName:biz,bizCity:city}});
+      setLoading(false);
+    },1500);
+  };
+
+  const doShare=()=>{
+    if(!result)return;
+    const v=VC[result.verdict]||{stamp:"FILED"};
+    const txt=tab===0?`${item} in ${loc} — VERDICT: ${v.stamp}\n\n"${result.summary}"\n\nFiled on RealPrice`:`${biz} in ${city} — VERDICT: ${v.stamp} (${result.score}/10)\n\n"${result.summary}"\n\nFiled on RealPrice`;
+    navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
+  };
+
+  const TABS=[{id:0,l:"PRICE CHECK"},{id:1,l:"VIBE CHECK"},{id:2,l:"LEDGER"},{id:3,l:"HISTORY",badge:history.length||null}];
+  const pReady=!loading&&!!item&&!!loc&&!!price;
+  const pbReady=!loading&&!!item&&!!pbLoc&&!!pbAsk;
+  const vReady=!loading&&!!biz&&!!city;
+
+  return <section id="app-tool" style={{padding:"70px 24px",background:"#e8e0c8"}}>
+    <div style={{maxWidth:640,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:36}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>FILE YOUR CASE</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(22px,4vw,32px)",color:"#1f1a14"}}>Submit for judgment</h2>
+      </div>
+
+      <div style={{display:"flex",overflowX:"auto",borderBottom:"3px solid #1f1a14"}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setResult(null);setPbResult(null);}} style={{
+          flex:"0 0 auto",padding:"11px 16px",fontSize:11,fontWeight:tab===t.id?700:400,
+          border:"none",borderTop:"2px solid #1f1a14",borderLeft:"2px solid #1f1a14",
+          borderRight:tab===t.id?"2px solid #1f1a14":"none",
+          cursor:"pointer",whiteSpace:"nowrap",position:"relative",letterSpacing:"1px",
+          background:tab===t.id?"#faf6ea":"#d8cda8",color:"#1f1a14",
+          marginBottom:tab===t.id?-3:0,fontFamily:"'Courier Prime',monospace"}}>
+          {t.l}{t.badge?<span style={{marginLeft:6,background:"#c4392a",color:"#fff",fontSize:9,padding:"1px 5px"}}>{t.badge}</span>:null}
+        </button>)}
+      </div>
+
+      <div className="paper" style={{padding:"28px 26px",borderTop:"none"}}>
+
+        {/* PRICE CHECK with merged Pre-Buy toggle */}
+        {tab===0&&<div style={{display:"flex",flexDirection:"column",gap:18}}>
+
+          {/* Mode toggle */}
+          <div style={{border:"2px solid #1f1a14",display:"flex",overflow:"hidden"}}>
+            <button onClick={()=>{setPriceMode("paid");setResult(null);setPbResult(null);}} style={{
+              flex:1,padding:"12px 8px",fontSize:11,fontWeight:priceMode==="paid"?700:400,
+              border:"none",cursor:"pointer",letterSpacing:"1px",textTransform:"uppercase",
+              fontFamily:"'Courier Prime',monospace",transition:"all .15s",
+              background:priceMode==="paid"?"#1f1a14":"transparent",
+              color:priceMode==="paid"?"#f4f0e6":"#5a5142"}}>✓ Already Paid</button>
+            <div style={{width:2,background:"#1f1a14"}}/>
+            <button onClick={()=>{setPriceMode("prebuy");setResult(null);setPbResult(null);}} style={{
+              flex:1,padding:"12px 8px",fontSize:11,fontWeight:priceMode==="prebuy"?700:400,
+              border:"none",cursor:"pointer",letterSpacing:"1px",textTransform:"uppercase",
+              fontFamily:"'Courier Prime',monospace",transition:"all .15s",
+              background:priceMode==="prebuy"?"#c4392a":"transparent",
+              color:priceMode==="prebuy"?"#f4f0e6":"#5a5142"}}>? About to Pay</button>
+          </div>
+
+          {/* Context note */}
+          <div style={{background:priceMode==="paid"?"rgba(43,38,32,.04)":"rgba(196,57,42,.04)",border:`1.5px dashed ${priceMode==="paid"?"#c4b896":"#c4392a"}`,padding:"10px 14px"}}>
+            <p style={{fontSize:12,color:priceMode==="paid"?"#5a5142":"#8a2e22",fontStyle:"italic",lineHeight:1.6}}>
+              {priceMode==="paid"?'"You already paid. Tell us what it cost — we\'ll rule if you were charged fair."':'"Still at the counter? Tell us what they\'re asking — we\'ll tell you whether to pay, negotiate, or walk."'}
+            </p>
+          </div>
+
+          {/* Quick picks */}
+          <div>
+            <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:8}}>▸ COMMON FILINGS</p>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
+              {QUICK.map((q,i)=><button key={i} onClick={()=>{setItem(q.item);setCat(q.cat);setCur(q.cur);setPbCur(q.cur);setLoc(q.loc);setPbLoc(q.loc);setPrice(q.price);setPbAsk(q.price);setQty("1");setCtx("");setResult(null);setPbResult(null);}} style={{flexShrink:0,padding:"6px 13px",fontSize:11,border:"1.5px solid #c4b896",background:"#ece5d3",color:"#5a5142",cursor:"pointer",whiteSpace:"nowrap",letterSpacing:"0.5px"}}>{q.label}</button>)}
+            </div>
+          </div>
+
+          {/* Shared fields */}
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>ITEM IN QUESTION</p>
+            <input className="ledger-input" placeholder="e.g. Cutting chai, Auto ride, Hotel night" value={item} onChange={e=>setItem(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>CATEGORY</p>
+            <Chip options={CATEGORIES} value={cat} onChange={setCat}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>LOCATION</p>
+            <input className="ledger-input" placeholder="e.g. Bandra Mumbai, Times Square NYC"
+              value={priceMode==="paid"?loc:pbLoc}
+              onChange={e=>priceMode==="paid"?setLoc(e.target.value):setPbLoc(e.target.value)}/></div>
+
+          {/* Amount — label changes by mode */}
+          <div style={{display:"flex",gap:14}}>
+            <div style={{flex:2}}>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>{priceMode==="paid"?"AMOUNT PAID":"THEY'RE ASKING"}</p>
+              <div style={{display:"flex",gap:8}}>
+                <select value={priceMode==="paid"?cur:pbCur} onChange={e=>priceMode==="paid"?setCur(e.target.value):setPbCur(e.target.value)} className="ledger-input" style={{width:70,flexShrink:0}}>
+                  {CURRENCIES.map(c=><option key={c}>{c}</option>)}
+                </select>
+                <input className="ledger-input" type="number" placeholder="0.00"
+                  value={priceMode==="paid"?price:pbAsk}
+                  onChange={e=>priceMode==="paid"?setPrice(e.target.value):setPbAsk(e.target.value)}/>
+              </div>
+            </div>
+            {priceMode==="paid"&&<div style={{width:70}}>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>QTY</p>
+              <input className="ledger-input" type="number" min="1" value={qty} onChange={e=>setQty(e.target.value)}/>
+            </div>}
+          </div>
+
+          {priceMode==="paid"&&price&&qty&&<p className="mono" style={{fontSize:12,color:"#c4392a",fontWeight:700}}>TOTAL ON RECORD: {cur} {(parseFloat(price||0)*parseFloat(qty||1)).toFixed(2)}</p>}
+
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>ADDITIONAL NOTES <span style={{fontWeight:400}}>(optional)</span></p>
+            <input className="ledger-input" placeholder="e.g. tourist area, airport, late night" value={ctx} onChange={e=>setCtx(e.target.value)}/></div>
+
+          <button onClick={priceMode==="paid"?runCheck:runPreBuy}
+            disabled={priceMode==="paid"?!pReady:!pbReady}
+            className="btn-stamp"
+            style={{opacity:(priceMode==="paid"?pReady:pbReady)?1:.4,cursor:(priceMode==="paid"?pReady:pbReady)?"pointer":"not-allowed",marginTop:6,background:priceMode==="prebuy"?"#c4392a":"#1f1a14",boxShadow:priceMode==="prebuy"?"4px 4px 0 #1f1a14":"4px 4px 0 #c4392a"}}>
+            {loading?"Reviewing case…":priceMode==="paid"?"File for Verdict →":"Should I Pay This? →"}
+          </button>
+          {loading&&<div style={{textAlign:"center",padding:"14px 0"}}><Spinner/><p className="mono" style={{fontSize:11,color:"#8a7d5c",marginTop:10,letterSpacing:"1px"}}>CHECKING MARKET RECORDS…</p></div>}
+
+          {/* Pre-buy result */}
+          {priceMode==="prebuy"&&pbResult&&!loading&&(()=>{
+            const rc=REC[pbResult.recommendation]||{color:"#555",label:pbResult.recommendation,stamp:"FILED"};
+            return <div className="fade paper" style={{padding:"24px",marginTop:6,boxShadow:"4px 6px 20px rgba(43,38,32,.14)",position:"relative"}}>
+              <div style={{position:"absolute",top:-1,left:0,right:0,height:10,background:"linear-gradient(135deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px,linear-gradient(45deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px",backgroundColor:"#e8e0c8"}}/>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:14}}>
+                <div className="stamp" style={{border:`3px solid ${rc.color}`,color:rc.color,fontFamily:"'Special Elite',monospace",fontSize:18,padding:"6px 16px",letterSpacing:"2px",transform:"rotate(-6deg)",background:"rgba(255,255,255,.4)"}}>{rc.stamp}</div>
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:14}}>
+                <span className="mono" style={{fontSize:11,border:"1.5px solid #1f1a14",padding:"3px 10px",fontWeight:700}}>{rc.label}</span>
+                {pbResult.price_range&&<span className="mono" style={{fontSize:11,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>MARKET: {pbResult.price_range}</span>}
+              </div>
+              <p style={{fontSize:14,textAlign:"center",fontStyle:"italic",color:"#2b2620",marginBottom:16,lineHeight:1.7}}>"{pbResult.one_liner}"</p>
+              <div className="perf" style={{margin:"0 -24px 16px"}}/>
+              {pbResult.negotiation_tip&&<div style={{marginBottom:10}}><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ WHAT TO SAY</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{pbResult.negotiation_tip}</p></div>}
+              {pbResult.alternative&&<div style={{marginBottom:14}}><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ SMARTER MOVE</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{pbResult.alternative}</p></div>}
+              <button onClick={()=>{const rc2=REC[pbResult.recommendation]||{label:pbResult.recommendation};navigator.clipboard.writeText(`${item} in ${pbLoc} — VERDICT: ${rc2.stamp}\n"${pbResult.one_liner}"\n\nFiled on RealPrice`).then(()=>{setPbCopied(true);setTimeout(()=>setPbCopied(false),2500);});}} className="btn-ghost" style={{width:"100%",padding:"10px 0",fontSize:12}}>{pbCopied?"✓ COPIED":"⎘ SHARE"}</button>
+            </div>;
+          })()}
+        </div>}
+
+        {/* VIBE CHECK */}
+        {tab===1&&<div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>BUSINESS NAME</p><input className="ledger-input" placeholder="e.g. Social, Starbucks, Taj Hotel" value={biz} onChange={e=>setBiz(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>BUSINESS TYPE</p><Chip options={BIZ_TYPES} value={bType} onChange={setBType}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>CITY</p><input className="ledger-input" placeholder="e.g. Mumbai, London, New York" value={city} onChange={e=>setCity(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>REVIEW SOURCES</p><Chip options={REVIEW_SRC} value={rSrc} onChange={setRSrc}/></div>
+          <button onClick={runVibeCheck} disabled={!vReady} className="btn-stamp" style={{opacity:vReady?1:.4,cursor:vReady?"pointer":"not-allowed",marginTop:6}}>{loading?"Reviewing testimony…":"File for Verdict →"}</button>
+          {loading&&<div style={{textAlign:"center",padding:"14px 0"}}><Spinner/><p className="mono" style={{fontSize:11,color:"#8a7d5c",marginTop:10,letterSpacing:"1px"}}>READING REVIEWS ON FILE…</p></div>}
+        </div>}
+
+        {/* LEDGER */}
+        {tab===2&&(history.length<2
+          ?<div style={{textAlign:"center",padding:"3rem 1rem"}}><p style={{fontSize:40,marginBottom:14}}>📒</p><p style={{fontSize:14,color:"#8a7d5c",fontStyle:"italic"}}>File at least 2 cases to unlock your ledger summary.</p></div>
+          :(()=>{
+            const total=history.length,deals=history.filter(h=>["DEAL","LEGIT"].includes(h.verdict)).length,ripped=history.filter(h=>["RIPPED","OVERHYPED"].includes(h.verdict)).length,fair=total-deals-ripped;
+            const dPct=Math.round((deals/total)*100),rPct=Math.round((ripped/total)*100);
+            const catMap={};
+            history.filter(h=>h.mode==="price"&&h.raw?.category).forEach(h=>{const c=h.raw.category;catMap[c]=catMap[c]||{t:0,r:0};catMap[c].t++;if(h.verdict==="RIPPED")catMap[c].r++;});
+            const topC=Object.entries(catMap).sort((a,b)=>b[1].t-a[1].t)[0];
+            const topR=Object.entries(catMap).sort((a,b)=>b[1].r-a[1].r)[0];
+            const Bar=({l,v,c})=><div style={{marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span className="mono" style={{fontSize:11,color:"#5a5142"}}>{l}</span><span className="mono" style={{fontSize:12,fontWeight:700,color:c}}>{v}</span></div>
+              <div style={{background:"#d8cda8",height:8}}><div style={{height:"100%",background:c,width:`${Math.round((v/Math.max(total,1))*100)}%`,transition:"width .6s ease"}}/></div>
+            </div>;
+            return <div>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:16}}>▸ CASE SUMMARY ON RECORD</p>
+              <div style={{display:"flex",gap:0,marginBottom:20,border:"2px solid #1f1a14"}}>
+                {[{v:total,l:"TOTAL FILED"},{v:`${dPct}%`,l:"DEALS"},{v:`${rPct}%`,l:"RIPPED"}].map((s,i)=><div key={i} style={{flex:1,textAlign:"center",padding:"14px 6px",borderRight:i<2?"2px solid #1f1a14":"none"}}>
+                  <p style={{fontFamily:"'Special Elite',monospace",fontSize:20,color:"#1f1a14"}}>{s.v}</p>
+                  <p className="mono" style={{fontSize:9,color:"#8a7d5c",marginTop:3,letterSpacing:"1px"}}>{s.l}</p>
+                </div>)}
+              </div>
+              <Bar l="DEALS / LEGIT" v={deals} c="#1a5c34"/>
+              <Bar l="FAIR" v={fair} c="#8a6200"/>
+              <Bar l="RIPPED / OVERHYPED" v={ripped} c="#c4392a"/>
+              {topC&&<p style={{fontSize:13,color:"#5a5142",marginTop:16,lineHeight:1.7}}>▸ Most filed: <b style={{color:"#1f1a14"}}>{topC[0]}</b> ({topC[1].t} cases)</p>}
+              {topR&&topR[1].r>0&&<p style={{fontSize:13,color:"#5a5142",marginTop:6,lineHeight:1.7}}>▸ Most disputed: <b style={{color:"#c4392a"}}>{topR[0]}</b> ({topR[1].r} ripped)</p>}
+            </div>;
+          })()
+        )}
+
+        {/* HISTORY */}
+        {tab===3&&(history.length===0
+          ?<div style={{textAlign:"center",padding:"3rem 1rem"}}><p style={{fontSize:40,marginBottom:14}}>🗂️</p><p style={{fontSize:14,color:"#8a7d5c",fontStyle:"italic"}}>No cases filed yet. Try a common filing above.</p></div>
+          :<div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <p className="mono" style={{fontSize:11,color:"#8a7d5c"}}>{history.length} CASES ON FILE</p>
+              <button onClick={()=>{setHistory([]);store.set("rp_h5",[]);}} className="mono" style={{fontSize:11,color:"#c4392a",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>CLEAR LEDGER</button>
+            </div>
+            {history.map((h,i)=>{
+              const v=VC[h.verdict]||{label:h.verdict,color:"#555"};
+              return <div key={i} onClick={()=>{if(h.mode==="vibe"){setBiz(h.raw.bizName);setCity(h.raw.bizCity);setTab(1);}else{setItem(h.raw.item);setLoc(h.raw.location);setPbLoc(h.raw.location);setPrice(h.raw.price);setCur(h.raw.currency);setQty(h.raw.qty||"1");setCat(h.raw.category);setTab(0);}setResult(null);setPbResult(null);setRKey(null);}} style={{padding:"12px 4px",borderBottom:"1.5px dashed #c4b896",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:10}}>
+                <div style={{flex:1}}><p style={{fontSize:13,color:"#1f1a14",fontWeight:700}}>{h.label}</p><p className="mono" style={{fontSize:10,color:"#8a7d5c",marginTop:2}}>{h.location} · {h.time}</p></div>
+                <span className="mono" style={{fontSize:10,fontWeight:700,color:v.color,border:`1.5px solid ${v.color}`,padding:"2px 8px"}}>{v.label}</span>
+              </div>;
+            })}
+          </div>
+        )}
+      </div>
+
+      {tab===0&&priceMode==="paid"&&!loading&&<ResultReceipt result={result} mode="price" onShare={doShare} copied={copied} tips={tips} onTip={addTip} query={lastQuery}/>}
+      {tab===1&&!loading&&<ResultReceipt result={result} mode="vibe" onShare={doShare} copied={copied} tips={tips} onTip={addTip} query={lastQuery}/>}
+    </div>
+  </section>;
+}
+
+function Footer(){
+  return <footer style={{background:"#1f1a14",padding:"48px 24px 28px",color:"#a89c7d"}}>
+    <div style={{maxWidth:1000,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:30,marginBottom:36}}>
+        <div>
+          <p style={{fontFamily:"'Special Elite',monospace",fontSize:20,color:"#f4f0e6",marginBottom:8}}>RealPrice™</p>
+          <p style={{fontSize:13,lineHeight:1.8,maxWidth:280,fontStyle:"italic"}}>"No fluff. Just the truth about prices and places — filed honestly, anywhere in the world."</p>
+        </div>
+        <div style={{display:"flex",gap:48,flexWrap:"wrap"}}>
+          <div><p className="mono" style={{fontSize:10,color:"#6b5f47",letterSpacing:"1px",marginBottom:12}}>THE DOCKET</p>
+            {["Price Check","Vibe Check","Spending Ledger","History"].map(l=><p key={l} style={{fontSize:13,color:"#a89c7d",marginBottom:9,cursor:"pointer"}}>{l}</p>)}
+          </div>
+          <div><p className="mono" style={{fontSize:10,color:"#6b5f47",letterSpacing:"1px",marginBottom:12}}>RECORDS OFFICE</p>
+            {["About","Blog","Contact","Privacy Policy"].map(l=><p key={l} style={{fontSize:13,color:"#a89c7d",marginBottom:9,cursor:"pointer"}}>{l}</p>)}
+          </div>
+        </div>
+      </div>
+      <div style={{borderTop:"1px dashed #4a4030",paddingTop:20,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <p className="mono" style={{fontSize:11}}>© 2025 REALPRICE. ALL RECORDS RESERVED.</p>
+        <p className="mono" style={{fontSize:11}}>FILED WITH ❤️ IN MUMBAI, INDIA</p>
+      </div>
+    </div>
+  </footer>;
+}
+
+function App(){
+  const toolRef=useRef(null);
+  const scrollToTool=()=>toolRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
+  return <div>
+    <Navbar onTryNow={scrollToTool}/>
+    <Hero onTryNow={scrollToTool}/>
+    <Ticker/>
+    <HowItWorks/>
+    <Features/>
+    <div ref={toolRef}><AppTool/></div>
+    <Footer/>
+  </div>;
+}
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
