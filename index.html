@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="theme-color" content="#f4f0e6"/>
+<meta name="description" content="RealPrice — No fluff. Just the truth about prices and places."/>
+<title>RealPrice — The Ledger of Truth</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{font-family:'Courier Prime',monospace;background:#ece5d3;color:#2b2620;overflow-x:hidden;}
+input,select,button,textarea{font-family:'Courier Prime',monospace;}
+::-webkit-scrollbar{width:8px;}
+::-webkit-scrollbar-track{background:#ece5d3;}
+::-webkit-scrollbar-thumb{background:#c4b896;border-radius:0;}
+a{text-decoration:none;color:inherit;}
+.mono{font-family:'Space Mono',monospace;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes stampIn{0%{opacity:0;transform:scale(2.5) rotate(-18deg);}60%{opacity:1;transform:scale(.9) rotate(-8deg);}80%{transform:scale(1.05) rotate(-7deg);}100%{opacity:1;transform:scale(1) rotate(-8deg);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scrollMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes receiptRise{0%{opacity:0;transform:perspective(900px) rotateX(40deg) translateY(60px) scale(.92);}60%{transform:perspective(900px) rotateX(-4deg) translateY(-8px) scale(1.01);}100%{opacity:1;transform:perspective(900px) rotateX(0deg) translateY(0) scale(1);}}
+.fade{animation:fadeUp .4s ease both;}
+.stamp{animation:stampIn .55s cubic-bezier(.2,1.4,.5,1) both;}
+.receipt-rise{animation:receiptRise .7s cubic-bezier(.2,1.2,.4,1) both;}
+.paper{background:#faf6ea;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(43,38,32,.04) 28px);border:1px solid #d8cda8;box-shadow:3px 4px 0 rgba(43,38,32,.1),0 1px 3px rgba(43,38,32,.06);position:relative;}
+.tilt-card{transform-style:preserve-3d;transition:transform .1s ease,box-shadow .15s ease;will-change:transform;}
+.tilt-card:hover{box-shadow:8px 12px 28px rgba(43,38,32,.18),3px 4px 0 rgba(43,38,32,.1)!important;}
+.btn-stamp{font-family:'Special Elite',monospace;background:#1f1a14;color:#f4f0e6;border:2px solid #1f1a14;padding:14px 30px;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;box-shadow:4px 4px 0 #c4392a;}
+.btn-stamp:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #c4392a;}
+.btn-stamp:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #c4392a;}
+.btn-ghost{font-family:'Special Elite',monospace;background:transparent;color:#1f1a14;border:2px solid #1f1a14;padding:13px 26px;font-size:14px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+.btn-ghost:hover{background:#1f1a14;color:#f4f0e6;}
+.ledger-input{width:100%;padding:11px 13px;font-size:14px;border:none;border-bottom:2px solid #2b2620;background:transparent;color:#1f1a14;outline:none;font-family:'Courier Prime',monospace;}
+.ledger-input:focus{border-bottom-color:#c4392a;background:rgba(196,57,42,.03);}
+.perf{background-image:radial-gradient(circle,#ece5d3 3px,transparent 3.5px);background-size:16px 16px;background-position:0 -8px;height:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+// ═══════════════════════════════════════════════════════════════════════
+// MEGA DEMO DATASET — 61 price items, 33 businesses
+// ═══════════════════════════════════════════════════════════════════════
+const DEMO_PRICES={
+  chai:{verdict:"RIPPED",price_range:"₹10–25",trend:"rising",summary:"You paid well over the odds. A cutting chai anywhere in Mumbai should run ₹10–25. Anything above ₹40 is tourist pricing or AC-room markup.",details:"Spikes happen near stations, malls, and air-conditioned cafés. Street stalls remain the honest benchmark.",tip:"Walk two minutes from any mall or station and the price halves.",ranges:{chai:[25,50]}},
+  coffee:{verdict:"RIPPED",price_range:"₹80–150",trend:"rising",summary:"Cappuccino runs ₹80 at CCD to ₹250+ at Starbucks. Anything above ₹200 at a non-premium venue is an overcharge.",details:"Specialty roasters justify premiums through bean quality. Chain markups generally don't.",tip:"Subko, Slay Coffee, and Third Wave Coffee deliver better quality for less.",ranges:{coffee:[150,200]}},
+  filtercoffee:{verdict:"FAIR",price_range:"₹15–40",trend:"stable",summary:"South Indian filter coffee at a Udupi-style joint runs ₹15–40. Filed as fair.",details:"Prices rise in tourist-heavy South Mumbai and premium South Indian chains.",tip:"Standalone Udupi restaurants almost always beat chain pricing."},
+  biryani:{verdict:"FAIR",price_range:"₹120–300",trend:"rising",summary:"Biryani pricing spans dhabas ₹120–180, mid-range ₹200–300, premium ₹400+. Filed under fair.",details:"Delivery platforms mark up 20–30% over dine-in pricing.",tip:"Call the restaurant directly if possible — skips the platform commission.",ranges:{biryani:[180,300]}},
+  pizza:{verdict:"RIPPED",price_range:"₹150–450",trend:"stable",summary:"A medium pizza at a standalone shop is ₹150–300; branded chains push ₹350–450+. Above ₹500 is an overcharge.",details:"Delivery apps add packaging and platform fees averaging 15-25%.",tip:"Oven Story and local pizzerias beat Domino's on price-to-quality."},
+  burger:{verdict:"FAIR",price_range:"₹80–250",trend:"stable",summary:"A standard burger at a casual joint is ₹80–150; premium gourmet ₹200–350. Fair territory.",details:"Standalone burger joints typically beat chain markups.",tip:"Combo meals rarely offer real savings — check individual items."},
+  samosa:{verdict:"DEAL",price_range:"₹8–20",trend:"stable",summary:"A single samosa from a street vendor runs ₹8–20. Solid deal territory.",details:"Station and airport food courts charge 3-4x street rates.",tip:"Local bakeries offer the most consistent quality-to-price ratio."},
+  vadapav:{verdict:"DEAL",price_range:"₹10–25",trend:"stable",summary:"Mumbai's signature vada pav runs ₹10–25 at most stalls. Fair even at iconic spots.",details:"Station and mall versions hit ₹40-50, still technically fair.",tip:"The best vada pav is almost never the most expensive one."},
+  thali:{verdict:"FAIR",price_range:"₹120–350",trend:"rising",summary:"A basic unlimited thali runs ₹120–200; premium thalis ₹250–350. Fair range.",details:"Tourist-area thalis run 20-30% higher than local versions.",tip:"Lunch thalis are almost always cheaper than dinner."},
+  icecream:{verdict:"FAIR",price_range:"₹40–150",trend:"rising",summary:"A single scoop at a standard parlour is ₹40–80; premium brands ₹100–150. Fair.",details:"Mall food courts charge 40-60% above street parlour rates.",tip:"Naturals and local parlours offer better value than international chains."},
+  momos:{verdict:"FAIR",price_range:"₹60–150",trend:"rising",summary:"Steamed momos from a street stall run ₹60–100; fried versions ₹100–150. Fair.",details:"Delivery apps add 25-30% over street pricing.",tip:"Street stalls near college areas usually offer the best value."},
+  sandwich:{verdict:"FAIR",price_range:"₹40–150",trend:"stable",summary:"A basic sandwich at a stall runs ₹40–80; café versions ₹100–150. Filed as fair.",details:"Bombay sandwich stalls remain the best value street food in the city.",tip:"Ask for extra chutney — it's usually free."},
+  water:{verdict:"FAIR",price_range:"₹15–20",trend:"stable",summary:"A 1-litre bottled water has an MRP of ₹15–20 almost everywhere. Above this is illegal overcharging.",details:"MRP is printed on the bottle — vendors legally cannot exceed it.",tip:"If a shop charges above MRP, refuse and report it."},
+  dosa:{verdict:"FAIR",price_range:"₹40–150",trend:"stable",summary:"A plain dosa at a standard South Indian joint runs ₹40–80; premium versions ₹100–150. Fair.",details:"Standalone Udupi restaurants consistently beat casual dining chains.",tip:"Breakfast-hour dosas are often priced lower than all-day menu."},
+  paratha:{verdict:"DEAL",price_range:"₹25–70",trend:"stable",summary:"A stuffed paratha with curd at a dhaba runs ₹25–50; premium ₹50–70. Solid deal.",details:"North Indian dhaba parathas remain some of the best value hot meals.",tip:"Ask for extra butter — usually included."},
+  juice:{verdict:"FAIR",price_range:"₹30–100",trend:"rising",summary:"Fresh fruit juice from a street vendor runs ₹30–60; juice bars ₹70–100. Fair.",details:"Sugarcane juice remains cheapest at ₹20-40 per glass.",tip:"Ask for no added sugar for the freshest version."},
+  friedchicken:{verdict:"FAIR",price_range:"₹150–350",trend:"rising",summary:"Fried chicken combo at a local joint runs ₹150–250; branded chains ₹250–350. Fair range.",details:"Bucket deals offer better per-piece value than individual combos.",tip:"Local fried chicken joints now rival chain quality at half the price."},
+  idli:{verdict:"DEAL",price_range:"₹30–80",trend:"stable",summary:"A plate of idli-sambar at a standard South Indian joint runs ₹30–60. Good deal territory.",details:"Premium South Indian chains push ₹70-80 for the same basic item.",tip:"Standalone udupi joints beat chain restaurants easily on this."},
+  pavbhaji:{verdict:"FAIR",price_range:"₹60–150",trend:"rising",summary:"Pav bhaji at a street stall runs ₹60–100; restaurant versions ₹100–150. Fair range.",details:"Extra butter and cheese toppings can add ₹20-40 to the base price.",tip:"Juhu and Chowpatty stalls are iconic but charge a small tourist premium."},
+  kebab:{verdict:"FAIR",price_range:"₹100–350",trend:"rising",summary:"A plate of seekh or chicken kebabs at a local joint runs ₹100–200; premium restaurants ₹250–350. Fair.",details:"Mohammed Ali Road and similar food streets offer the best value kebabs.",tip:"Evening/night stalls usually have the freshest and best-priced kebabs."},
+  softdrink:{verdict:"FAIR",price_range:"₹20–60",trend:"stable",summary:"A regular soft drink bottle/can has MRP of ₹20–40; restaurant markup pushes ₹40-60. Fair if within MRP+reasonable markup.",details:"Restaurants can legally charge above MRP for chilled/served drinks but excessive markup is a red flag.",tip:"Check the MRP printed on the bottle before paying restaurant prices."},
+  breadomelette:{verdict:"DEAL",price_range:"₹30–70",trend:"stable",summary:"Bread omelette from a street stall or Irani café runs ₹30–60. Solid deal, classic Mumbai breakfast value.",details:"Café versions with cheese/extra toppings push toward ₹70-90.",tip:"Irani cafés remain some of the best value breakfast spots in Mumbai."},
+  auto:{verdict:"FAIR",price_range:"₹25–80",trend:"stable",summary:"Mumbai auto fares are metered and regulated. For 3km, ₹25–80 is within range. This checks out.",details:"Night surcharge (25%) applies post-midnight. Refusing the meter is illegal.",tip:"Rapido or Ola Auto offer fixed pricing if drivers dodge the meter.",ranges:{auto:[60,100]}},
+  taxi:{verdict:"FAIR",price_range:"₹100–250",trend:"rising",summary:"A Mumbai kaali-peeli taxi for similar distance to an auto runs ₹100–250. Filed as fair.",details:"Airport and station stands often quote above-meter rates to tourists.",tip:"Prepaid taxi counters at airports offer fixed, fair rates."},
+  cab:{verdict:"FAIR",price_range:"₹80–180",trend:"rising",summary:"A 5km Ola/Uber ride normally runs ₹80–150, surge pushing to ₹180–250 at peak. Within the fair column.",details:"Surge applies during rain, rush hour, and late nights.",tip:"Cross-check Ola, Uber, and Rapido before booking.",ranges:{cab:[120,200]}},
+  petrol:{verdict:"FAIR",price_range:"₹104–106/L",trend:"stable",summary:"Petrol is government-regulated across Mumbai pumps — currently ₹104–106/litre. Filed as fair.",details:"Prices revise daily at 6am based on crude oil and exchange rates.",tip:"Always confirm the meter resets to zero before fueling.",ranges:{petrol:[103,107]}},
+  metro:{verdict:"DEAL",price_range:"₹10–80",trend:"stable",summary:"Mumbai Metro fares are fixed by distance slab, ₹10–80. Genuinely fair transit.",details:"Fares are non-negotiable and posted at every station.",tip:"The Metro card offers a small discount over token purchases."},
+  localtrain:{verdict:"DEAL",price_range:"₹5–35",trend:"stable",summary:"Mumbai local train second-class fares run ₹5–35. One of the best value transit systems in the world.",details:"First-class fares run 8-10x second class but still cheap globally.",tip:"A monthly pass pays for itself within 15-18 trips."},
+  bus:{verdict:"DEAL",price_range:"₹5–40",trend:"stable",summary:"BEST bus fares run ₹5–40 depending on distance and AC/non-AC. Solid deal across the board.",details:"AC buses run roughly double non-AC fares for the same route.",tip:"The BEST app shows live bus tracking."},
+  flight:{verdict:"FAIR",price_range:"Varies heavily",trend:"rising",summary:"Domestic flight pricing swings enormously by booking window. Generally rising this season.",details:"Booking 3-4 weeks ahead saves 20-40% over last-minute fares.",tip:"Tuesday/Wednesday and early morning slots are usually cheapest."},
+  scooterrental:{verdict:"FAIR",price_range:"₹300–600/day",trend:"stable",summary:"A scooter rental in tourist towns runs ₹300–600/day depending on model and season. Fair.",details:"Goa and Rishikesh rates spike 30-50% during peak season.",tip:"Always negotiate for multi-day rentals."},
+  bikerideshare:{verdict:"DEAL",price_range:"₹20–60",trend:"stable",summary:"A bike taxi for a short 3km ride runs ₹20–60, cheaper than auto/cab for solo travel. Solid deal.",details:"Surge pricing applies less aggressively to bike taxis.",tip:"Bike taxis are fastest through Mumbai traffic during rush hour."},
+  interstatebus:{verdict:"FAIR",price_range:"₹300–1200",trend:"rising",summary:"An overnight AC sleeper bus between major cities runs ₹300–800; premium Volvo/luxury ₹800–1200. Fair range.",details:"Prices spike 40-60% during festival season and long weekends.",tip:"Booking 5-7 days ahead typically secures better seat selection and pricing."},
+  cyclerental:{verdict:"DEAL",price_range:"₹50–150/hr",trend:"stable",summary:"A basic cycle rental in tourist towns like Pondicherry or Goa runs ₹50–150 per hour. Good deal for short exploration.",details:"Full-day rentals typically offer better per-hour value than hourly rates.",tip:"Electric cycle rentals cost 2-3x regular but worth it for hilly terrain."},
+  hotel:{verdict:"FAIR",price_range:"Varies by tier",trend:"stable",summary:"Hotel pricing is hyper-contextual. Budget ₹800–2000, mid-range ₹2500–6000, premium 5-star ₹12,000+.",details:"OTAs often beat hotel direct rates, though loyalty programs sometimes flip this.",tip:"Check the hotel's own website after finding it on an OTA."},
+  oyo:{verdict:"FAIR",price_range:"₹800–2500",trend:"stable",summary:"An OYO booking in most Indian cities runs ₹800–2500/night depending on tier and season. Fair range.",details:"Prices vary 40-50% between weekday and weekend bookings.",tip:"Booking directly through the property sometimes yields better rates."},
+  hostel:{verdict:"DEAL",price_range:"₹300–900",trend:"stable",summary:"A hostel dorm bed in tourist cities runs ₹300–900/night. Solid value compared to budget hotels.",details:"Private rooms in hostels run closer to budget hotel pricing.",tip:"Hostels in backpacker hubs often include free breakfast."},
+  airbnb:{verdict:"FAIR",price_range:"₹1500–5000",trend:"rising",summary:"An Airbnb entire apartment in a major city runs ₹1500–5000/night depending on location. Fair range.",details:"Cleaning fees and service charges can add 15-20% to the quoted rate.",tip:"Always check total price including fees before comparing to hotels."},
+  resort:{verdict:"FAIR",price_range:"₹4000–15000",trend:"rising",summary:"A mid-range beach or hill resort runs ₹4000–8000/night; premium resorts ₹8000–15000+. Fair depending on amenities.",details:"All-inclusive packages sometimes offer better value than room-only rates.",tip:"Off-season resort bookings can save 30-50% over peak season rates."},
+  guesthouse:{verdict:"DEAL",price_range:"₹500–1500",trend:"stable",summary:"A local guesthouse in tourist towns runs ₹500–1500/night, genuinely good value for basic clean accommodation.",details:"Family-run guesthouses often include home-cooked meal options at extra cost.",tip:"Guesthouses near local markets rather than main tourist strips offer better rates."},
+  haircut:{verdict:"FAIR",price_range:"₹80–500",trend:"stable",summary:"A basic men's haircut at a local salon runs ₹80–200; premium salons ₹300–500+. Fair range.",details:"Mall salons and branded chains charge 2-3x local barber shops.",tip:"Local barber shops are almost always the best value."},
+  facial:{verdict:"FAIR",price_range:"₹300–1500",trend:"rising",summary:"A basic facial at a local parlour runs ₹300–600; premium spa facials ₹800–1500+. Fair depending on tier.",details:"Product-brand facials sit in the middle tier, ₹500-900.",tip:"Ask what products are used before booking."},
+  gym:{verdict:"FAIR",price_range:"₹1000–3000/mo",trend:"rising",summary:"A standard gym membership runs ₹1000–2000/month; premium chains ₹2000–3500+. Fair range.",details:"Annual memberships offer 15-25% savings over monthly billing.",tip:"Most gyms offer a free trial day."},
+  massage:{verdict:"FAIR",price_range:"₹800–3000",trend:"rising",summary:"A basic full-body massage at a local spa runs ₹800–1500; premium chains ₹2000–3000+. Fair territory.",details:"5-star hotel spas charge 2-4x standalone spa pricing.",tip:"Standalone Kerala-style ayurvedic spas often offer better value."},
+  manicure:{verdict:"FAIR",price_range:"₹200–800",trend:"rising",summary:"A basic manicure at a local salon runs ₹200–400; premium with gel/extensions ₹500–800+. Fair range.",details:"Nail art and extensions add ₹200-500 on top of base pricing.",tip:"Local unisex salons often match branded chain quality at half the price."},
+  waxing:{verdict:"FAIR",price_range:"₹150–800",trend:"stable",summary:"Full arm or leg waxing at a local parlour runs ₹150–400; premium salons ₹400–800. Filed as fair.",details:"Rica wax and premium products cost 30-50% more than regular wax.",tip:"Package deals for full body waxing offer better per-service value."},
+  dentalcleaning:{verdict:"FAIR",price_range:"₹500–2500",trend:"rising",summary:"A basic dental cleaning at a local clinic runs ₹500–1200; premium dental chains ₹1500–2500. Fair depending on clinic tier.",details:"Corporate dental chains sit in the premium tier.",tip:"Local established dentists often provide comparable quality at lower cost."},
+  eyecheckup:{verdict:"DEAL",price_range:"₹0–500",trend:"stable",summary:"Many optical chains offer free basic eye checkups with glasses purchase; standalone checkups run ₹200–500. Good deal.",details:"Comprehensive eye exams with a specialist cost more, ₹500-1500.",tip:"Lenskart and similar chains often bundle free checkups with frame purchases."},
+  phonecase:{verdict:"RIPPED",price_range:"₹100–400",trend:"stable",summary:"A basic phone case at a local shop runs ₹100–250; branded cases ₹300–400. Above ₹500 for basic is overpriced.",details:"Mall kiosks and airport shops charge 2-3x local market rates.",tip:"Local mobile markets offer the best accessory pricing."},
+  chargingcable:{verdict:"FAIR",price_range:"₹150–600",trend:"stable",summary:"A basic charging cable runs ₹150–300; certified cables ₹400–600. Fair depending on brand.",details:"Original brand cables command a genuine premium for certified components.",tip:"MFi-certified third party cables offer similar quality at 40-50% less."},
+  umbrella:{verdict:"FAIR",price_range:"₹100–500",trend:"rising",summary:"A basic umbrella runs ₹100–250; premium windproof ₹300–500. Fair, though monsoon sees markups.",details:"Prices spike 20-30% at monsoon onset — buying pre-season saves money.",tip:"Street vendors near stations often beat shops during sudden rain."},
+  earphones:{verdict:"FAIR",price_range:"₹300–2000",trend:"stable",summary:"Basic wired earphones run ₹300–600; budget wireless ₹800–2000. Fair range depending on features.",details:"Branded wireless earbuds sit in the ₹1000-2000 sweet spot for value.",tip:"Local electronics markets often beat online prices during festival sales."},
+  powerbank:{verdict:"FAIR",price_range:"₹500–2000",trend:"stable",summary:"A basic 10000mAh power bank runs ₹500–900; higher capacity or fast-charging ₹1200–2000. Fair range.",details:"Branded options offer better safety certification than unbranded.",tip:"Avoid unbranded power banks under ₹400 — safety certification is often missing."},
+  laundry:{verdict:"FAIR",price_range:"₹10–40/piece",trend:"stable",summary:"Local laundry/dhobi services charge ₹10–40 per piece. This checks out as fair.",details:"Dry cleaning for suits/sarees runs significantly higher, ₹150-400 per piece.",tip:"Monthly laundry subscriptions with local dhobis often work out cheaper."},
+  parking:{verdict:"FAIR",price_range:"₹20–100/hr",trend:"rising",summary:"Mall parking runs ₹20–50/hour for the first few hours, sometimes ₹100+ at premium locations. Fair range.",details:"Many malls offer free parking for the first 30-60 minutes with a purchase.",tip:"Always check for validation offers at malls."},
+  movieticket:{verdict:"RIPPED",price_range:"₹150–400",trend:"rising",summary:"A standard multiplex ticket runs ₹150–350; premium seats push ₹400+. Above ₹450 for standard is overpriced.",details:"Weekday morning shows are 30-40% cheaper than weekend evening.",tip:"Book via BookMyShow with a bank offer for discounts."},
+  simcard:{verdict:"FAIR",price_range:"₹150–500",trend:"stable",summary:"A prepaid SIM activation runs ₹150–300 depending on plan; some overcharge tourists up to ₹500. Fair if under ₹300.",details:"Airtel, Jio, and Vi all offer similar entry pricing.",tip:"Buy directly from an official store, not a random shop."},
+  printout:{verdict:"FAIR",price_range:"₹2–10/page",trend:"stable",summary:"A black-and-white printout runs ₹2–5 per page; color ₹8–15. Fair market rate.",details:"Cyber cafés near exam centers occasionally spike prices during exam season.",tip:"Bulk printing often gets a per-page discount if you ask."},
+  photocopy:{verdict:"DEAL",price_range:"₹1–3/page",trend:"stable",summary:"A basic photocopy runs ₹1–3 per page at most shops. Solid deal.",details:"Legal document and large-format copies command a premium over standard A4.",tip:"Shops near courts sometimes charge more for legal-size copies."},
+  keymaking:{verdict:"FAIR",price_range:"₹30–150",trend:"stable",summary:"A basic duplicate key runs ₹30–80; complex or car keys ₹100–150+. Filed as fair.",details:"Car and bike keys with chips command a legitimate premium.",tip:"Local hardware shops beat mall kiosks for basic key duplication."},
+  cobbler:{verdict:"DEAL",price_range:"₹20–150",trend:"stable",summary:"Basic shoe repair at a street cobbler runs ₹20–100; complex repairs ₹100–150. Genuinely good value.",details:"Branded shoe repair shops charge 3-4x street cobbler rates.",tip:"Street cobblers near markets are almost always better value."},
+  tailoring:{verdict:"FAIR",price_range:"₹100–800",trend:"stable",summary:"Basic alterations run ₹100–300; full garment stitching ₹400–800. Fair depending on complexity.",details:"Bridal and embellished garment tailoring commands significantly higher pricing.",tip:"Local tailors with regular clientele usually beat boutique services on price."},
+  courier:{verdict:"FAIR",price_range:"₹40–200",trend:"stable",summary:"A local courier within the same city runs ₹40–100; inter-city ₹100–200. Fair range.",details:"Express/same-day delivery commands a 50-100% premium.",tip:"Comparing 2-3 courier apps before booking often reveals savings."},
+  carwash:{verdict:"FAIR",price_range:"₹100–500",trend:"stable",summary:"A basic exterior car wash runs ₹100–250; full interior+exterior detailing ₹300–500. Fair range.",details:"Doorstep car wash apps typically charge 20-30% more than a local garage.",tip:"Monthly wash subscriptions at local garages offer better per-wash value."},
+  bikeservice:{verdict:"FAIR",price_range:"₹300–1200",trend:"stable",summary:"Basic two-wheeler servicing at a local mechanic runs ₹300–600; authorized service centers ₹600–1200. Fair depending on need.",details:"Authorized centers use genuine parts but charge a premium for labor.",tip:"For basic servicing, a trusted local mechanic often matches quality at lower cost."},
+  plumber:{verdict:"FAIR",price_range:"₹150–800",trend:"rising",summary:"A basic plumbing callout for a minor fix runs ₹150–400; complex jobs ₹400–800+. Fair range depending on issue.",details:"Emergency/late-night callouts typically carry a 50-100% premium.",tip:"Ask for a clear quote before work begins to avoid inflated final bills."},
+  electrician:{verdict:"FAIR",price_range:"₹150–800",trend:"rising",summary:"A basic electrical callout runs ₹150–400; complex wiring work ₹400–800+. Fair range depending on complexity.",details:"Urban Company and similar apps typically charge 20-30% more than local electricians.",tip:"Local electricians with an established reputation usually offer the best value."},
+  pestcontrol:{verdict:"FAIR",price_range:"₹800–3000",trend:"rising",summary:"A basic pest control treatment for a small apartment runs ₹800–1500; comprehensive treatments ₹1500–3000. Fair range.",details:"Termite treatment specifically commands a higher premium due to specialized chemicals.",tip:"Annual maintenance contracts often work out cheaper than one-off treatments."},
+  default:{verdict:"FAIR",price_range:"Varies",trend:"stable",summary:"Based on general ledger data, this falls within a fair range for the category. No major objection filed.",details:"For a sharper ruling, specify the exact item and location — the more precise, the better the verdict.",tip:"Compare at least two sources before settling any transaction."},
+};
+
+const DEMO_VIBES={
+  starbucks:{verdict:"MIXED",score:6,summary:"Consistent, yes. Honest pricing, no. ₹400 for a latte you can get better elsewhere for ₹150 is a lifestyle surcharge. Filed as mixed.",details:"Praise: ambience, reliable WiFi, consistent taste. Complaints: overpriced, overly sweet by default.",tip:"Pay for the seat and AC, not the coffee.",comparison:"Blue Tokai and Subko deliver better coffee at 60% of the cost."},
+  mcdonald:{verdict:"LEGIT",score:7,summary:"McDonald's India delivers on its promise — consistent, fairly priced, McAloo Tikki earned its reputation honestly. Legit.",details:"Praise: fast, clean, reliable value. Complaints: smaller portions than international counterparts.",tip:"McSaver combos are best value. Dine-in beats delivery freshness.",comparison:"Burger King wins on price; KFC wins on chicken variety."},
+  kfc:{verdict:"LEGIT",score:7,summary:"KFC India consistently delivers fried chicken done right, at a fair price. Filed as legit.",details:"Praise: consistent quality, good combo value. Complaints: portion sizes shrinking.",tip:"Bucket meals offer meaningfully better per-piece value.",comparison:"McDonald's wins on speed; KFC wins on chicken flavor consistency."},
+  dominos:{verdict:"MIXED",score:6,summary:"Domino's delivers fast and reliably, but pricing has crept up while portions shrunk. Mixed verdict.",details:"Praise: delivery speed, consistent taste. Complaints: rising prices, smaller pizzas than before.",tip:"Buy 1 Get 1 offers on weekdays are the best value.",comparison:"Oven Story and local pizzerias often beat Domino's on price-to-size."},
+  subway:{verdict:"MIXED",score:6,summary:"Subway's build-your-own freshness holds up, but pricing outpaced ingredient quality. Filed as mixed.",details:"Praise: customization, healthier option. Complaints: pricing increases, inconsistent bread.",tip:"Footlong deals on specific days offer better value.",comparison:"Local sandwich stalls offer better value; Subway wins on customization."},
+  pizzahut:{verdict:"MIXED",score:5,summary:"Pizza Hut trades on brand recognition more than value — decent product, consistently pricier than alternatives.",details:"Praise: consistent branded experience. Complaints: pricing on the higher end for quality.",tip:"Buffet lunch offers the best value entry point.",comparison:"Domino's and local pizzerias generally beat Pizza Hut."},
+  burgerking:{verdict:"LEGIT",score:7,summary:"Burger King consistently undercuts McDonald's on price while matching flame-grilled flavor. Good value.",details:"Praise: flavor, competitive pricing, frequent app deals. Complaints: inconsistent outlet quality.",tip:"The app frequently has genuinely good discount codes.",comparison:"Beats McDonald's on price; comparable quality."},
+  cafecoffeeday:{verdict:"FAIR",score:6,summary:"CCD remains the honest budget option in the café space — not exciting, fairly priced.",details:"Praise: affordable, widely available, consistent basic quality. Complaints: nothing special.",tip:"Their combo deals are genuinely good value.",comparison:"Cheaper than Starbucks with comparable basic coffee."},
+  chaipoint:{verdict:"LEGIT",score:7,summary:"Chai Point delivers quick, quality chai at a fair price, well positioned for the category.",details:"Praise: quick service, consistent chai quality. Complaints: limited seating at most outlets.",tip:"Their subscription options are worth it for office deliveries.",comparison:"Better value than Starbucks for quick chai."},
+  wowmomo:{verdict:"LEGIT",score:7,summary:"Wow! Momo delivers consistent quality across a large chain footprint — reliable and fairly priced.",details:"Praise: consistency across outlets, good variety. Complaints: portions can feel small for the price.",tip:"Combo boxes with multiple flavors offer the best value for trying the menu.",comparison:"More consistent than most street momo stalls; less cheap."},
+  haldirams:{verdict:"LEGIT",score:8,summary:"Haldiram's delivers genuinely reliable quality across its massive menu at consistently fair pricing. Widely trusted.",details:"Praise: consistent quality, huge variety, good value thalis. Complaints: can get very crowded at peak hours.",tip:"Their sweets and namkeen counter offers better value than the restaurant section.",comparison:"One of the most consistently well-regarded value chains in India."},
+  barbequenation:{verdict:"MIXED",score:6,summary:"Barbeque Nation delivers a fun unlimited-buffet experience but per-person pricing has risen faster than perceived value.",details:"Praise: unlimited food concept, live grilling experience. Complaints: rising prices, inconsistent quality across outlets.",tip:"Lunch buffets are meaningfully cheaper than dinner for the same experience.",comparison:"Absolute Barbecue is a comparable competitor at similar price points."},
+  taj:{verdict:"LEGIT",score:9,summary:"The Taj Mahal Palace earns every rupee. Service, heritage, and execution are genuinely world-class.",details:"Praise: flawless service, architecture, F&B quality. Complaints: prices that sting.",tip:"Sea Lounge afternoon tea is the best-value luxury experience in the building.",comparison:"The Oberoi and ITC Grand Central compare well, sometimes at better rates."},
+  oberoi:{verdict:"LEGIT",score:9,summary:"The Oberoi consistently delivers impeccable service and world-class execution. Worth the premium.",details:"Praise: personalized service, exceptional attention to detail. Complaints: premium pricing across F&B.",tip:"The spa is considered one of the best in the city, worth it for non-guests too.",comparison:"The Taj Mahal Palace is comparable; both justify premium pricing."},
+  itc:{verdict:"LEGIT",score:8,summary:"ITC hotels deliver strong consistency across properties — reliable luxury without occasional inconsistency.",details:"Praise: consistent quality, strong F&B options. Complaints: less iconic brand premium than Taj/Oberoi.",tip:"The loyalty program offers genuinely good value for frequent travelers.",comparison:"Slightly better value than Taj or Oberoi for comparable quality."},
+  tajlandsend:{verdict:"LEGIT",score:8,summary:"Taj Lands End delivers Taj-standard service with a genuinely stunning sea-facing location.",details:"Praise: sea view, service standards, pool area. Complaints: slightly dated compared to newer properties.",tip:"Higher floor sea-facing rooms are worth the small extra cost.",comparison:"Comparable service to Taj Mahal Palace at a slightly different price tier."},
+  marriott:{verdict:"LEGIT",score:7,summary:"Marriott properties deliver reliable international-standard service, less distinctly Indian than Taj/Oberoi.",details:"Praise: consistent global standards, good loyalty program. Complaints: can feel generic.",tip:"Bonvoy points redemption often offers better value than cash rates.",comparison:"More globally consistent; less distinctly luxurious character."},
+  novotel:{verdict:"FAIR",score:6,summary:"Novotel delivers dependable mid-range business hotel quality — nothing extraordinary but fair for the price.",details:"Praise: reliable business amenities. Complaints: unremarkable food, generic decor.",tip:"Airport Novotel properties are genuinely convenient for early flights.",comparison:"Fair mid-tier option; doesn't compete with luxury segment."},
+  ginger:{verdict:"LEGIT",score:7,summary:"Ginger hotels deliver strong value for the budget-business segment — clean, reliable, fairly priced.",details:"Praise: consistent cleanliness, good value for price. Complaints: limited F&B options at most properties.",tip:"Advance booking on their own site sometimes beats OTA pricing.",comparison:"Best value in the Tata-group budget-business hotel segment."},
+  lemontree:{verdict:"LEGIT",score:7,summary:"Lemon Tree Hotels consistently deliver comfortable mid-range stays with a fun, colorful brand identity.",details:"Praise: consistent quality, good breakfast, friendly service. Complaints: limited premium amenities.",tip:"Their loyalty program offers genuinely usable point redemptions.",comparison:"Comparable to Ginger and other mid-tier chains; slightly more character."},
+  social:{verdict:"LEGIT",score:7,summary:"Social earns its keep on vibe — solid cocktails, decent food, a crowd that makes the evening work.",details:"Praise: cocktails, atmosphere, group-friendly. Complaints: food inconsistency, weekend overcrowding.",tip:"Visit weekday evenings for the better experience.",comparison:"Farzi Café is more elevated; Bombay Canteen wins on food."},
+  farzicafe:{verdict:"LEGIT",score:8,summary:"Farzi Café delivers a genuinely elevated experience — inventive food, strong cocktail program.",details:"Praise: creative menu, presentation, cocktail quality. Complaints: pricing on the higher side.",tip:"The tasting menu offers better value than à la carte for groups.",comparison:"Social is more casual and affordable; Farzi wins on food creativity."},
+  bombaycanteen:{verdict:"LEGIT",score:8,summary:"The Bombay Canteen consistently delivers on its reinvented-Indian promise — genuinely worth the visit.",details:"Praise: inventive regional Indian dishes, strong cocktail pairing. Complaints: can get loud, booking needed.",tip:"Weekday lunch offers a quieter, slightly more affordable experience.",comparison:"Social wins on casual affordability; Bombay Canteen wins on food quality."},
+  toit:{verdict:"LEGIT",score:8,summary:"Toit in Bangalore consistently delivers on its craft beer promise — genuinely good brewing.",details:"Praise: beer quality, buzzing atmosphere, solid pub food. Complaints: long waits, no reservations.",tip:"Arrive before 7pm on weekends to avoid the worst crowds.",comparison:"One of the more well-reviewed microbreweries in Bangalore."},
+  hardrockcafe:{verdict:"MIXED",score:6,summary:"Hard Rock Cafe trades on brand and memorabilia — fun experience, but food/drink pricing outpaces quality.",details:"Praise: ambience, live music nights, memorabilia. Complaints: overpriced food.",tip:"Live music nights are the best reason to visit, not the food.",comparison:"More about atmosphere; local bars often offer better food-to-price."},
+  iranicafe:{verdict:"LEGIT",score:8,summary:"Traditional Irani cafés remain genuinely great value across Mumbai — authentic, affordable, worth seeking out.",details:"Praise: authentic atmosphere, honest pricing, iconic bun-maska and chai. Complaints: limited seating, cash-only at some.",tip:"Britannia & Co and Kyani & Co are worth the small detour for the experience.",comparison:"Consistently better value than modern café chains for a similar breakfast experience."},
+  bigbazaar:{verdict:"FAIR",score:6,summary:"Big Bazaar (where operating) offers competitive pricing on staples, selection consistency varies by outlet.",details:"Praise: competitive pricing on groceries. Complaints: inconsistent stock, long checkout lines.",tip:"Sunday Bazaar days typically offer the deepest discounts.",comparison:"Generally competitive with DMart, though DMart wins on consistency."},
+  dmart:{verdict:"LEGIT",score:8,summary:"DMart consistently delivers on its value promise — competitive pricing with reliable stock and quality.",details:"Praise: consistent low pricing, good stock availability. Complaints: crowded on weekends.",tip:"Weekday mornings offer the least crowded shopping experience.",comparison:"Consistently beats most competitors on everyday staple pricing."},
+  reliancefresh:{verdict:"FAIR",score:6,summary:"Reliance Fresh offers fair, competitive pricing with wide availability, though not always cheapest.",details:"Praise: convenient locations, decent produce. Complaints: pricing slightly above DMart.",tip:"Their app often has additional digital-only discounts.",comparison:"DMart generally edges out on price; Reliance wins on location."},
+  croma:{verdict:"FAIR",score:6,summary:"Croma offers fair electronics pricing with in-store service and warranty support justifying a modest premium.",details:"Praise: knowledgeable staff, easy warranty claims, EMI options. Complaints: pricier than online-only retailers.",tip:"Price-match requests are often honored with a lower online price shown.",comparison:"Slightly pricier than Amazon/Flipkart but better in-person support."},
+  bigbasket:{verdict:"FAIR",score:7,summary:"BigBasket delivers fair grocery pricing with the convenience of home delivery, comparable to physical store rates.",details:"Praise: reliable delivery windows, decent produce quality. Complaints: delivery fees on small orders.",tip:"BB Star membership pays off quickly if you order groceries weekly.",comparison:"Comparable pricing to DMart; wins purely on delivery convenience."},
+  zudio:{verdict:"LEGIT",score:8,summary:"Zudio delivers genuinely strong value in fast fashion — trendy basics at prices that undercut most competitors.",details:"Praise: low prices, frequent new stock, decent quality for price point. Complaints: sizing inconsistency across items.",tip:"New stock typically drops at the start of the month — best selection then.",comparison:"Beats most fast fashion competitors on price for comparable quality."},
+  default:{verdict:"MIXED",score:6,summary:"Signals on file are mixed. Customer experience appears to vary by timing and expectation. No sharp ruling possible with current evidence.",details:"Insufficient specific data filed. Specify the business name more precisely for a sharper ruling.",tip:"Check reviews from the last 30 days before visiting anywhere new.",comparison:"Cross-reference against 2-3 similar venues nearby."},
+};
+
+const DEMO_PREBUY={
+  low:{verdict:"DEAL",recommendation:"PAY",one_liner:"Approved without objection. This is below market — pay before they reconsider.",negotiation_tip:"None required — already filed below market rate.",alternative:"You will not find better filed anywhere nearby."},
+  fair:{verdict:"FAIR",recommendation:"NEGOTIATE",one_liner:"Fair on the books, but the ledger always has room for negotiation.",negotiation_tip:"Say: 'Bhai, thoda kam karo — cash de raha hoon.' Works in 6 of 10 cases on file.",alternative:"One round of comparison shopping may yield 10-15% savings."},
+  high:{verdict:"RIPPED",recommendation:"WALK_AWAY",one_liner:"Objection filed. This rate runs 40-60% over the documented market average.",negotiation_tip:"Counter at 50% of the ask and settle in the middle ground.",alternative:"Walk with confidence — they often call you back with a fairer number."},
+};
+
+const TRENDING=[
+  {item:"Cutting chai · ₹60",location:"Bandra, Mumbai",verdict:"RIPPED",ago:"2m ago"},
+  {item:"Taj Lands End",location:"Mumbai",verdict:"LEGIT",ago:"5m ago"},
+  {item:"Auto ride 3km · ₹55",location:"Andheri, Mumbai",verdict:"FAIR",ago:"9m ago"},
+  {item:"Pizza · $22",location:"Times Square, NYC",verdict:"RIPPED",ago:"14m ago"},
+  {item:"Haircut · ₹300",location:"Indiranagar, Bengaluru",verdict:"DEAL",ago:"21m ago"},
+  {item:"Cappuccino · AED 28",location:"Dubai Mall",verdict:"FAIR",ago:"27m ago"},
+];
+
+const CURRENCIES=["INR","USD","GBP","EUR","AED","SGD","AUD","CAD","JPY","CNY","MYR","THB","ZAR","BRL","MXN"];
+const CATEGORIES=["Food & Drink","Transport","Accommodation","Shopping","Entertainment","Health & Beauty","Services","Electronics","Groceries","Other"];
+const BIZ_TYPES=["Restaurant","Café","Hotel","Street Vendor","Bar / Pub","Salon / Spa","Retail Store","Gym","Hospital / Clinic","Online Store","Other"];
+const REVIEW_SRC=["All available","Google","Zomato","TripAdvisor","Yelp","Swiggy","MagicPin","Justdial","Instagram"];
+const QUICK=[
+  {label:"Chai",item:"Cutting chai",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"60"},
+  {label:"Auto",item:"Auto rickshaw 3km",cat:"Transport",cur:"INR",loc:"Mumbai",price:"80"},
+  {label:"Biryani",item:"Chicken biryani",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"250"},
+  {label:"Coffee",item:"Cappuccino",cat:"Food & Drink",cur:"INR",loc:"Mumbai",price:"180"},
+  {label:"Cab",item:"Ola/Uber cab 5km",cat:"Transport",cur:"INR",loc:"Mumbai",price:"150"},
+  {label:"Petrol",item:"Petrol 1 litre",cat:"Other",cur:"INR",loc:"Mumbai",price:"105"},
+];
+const VC={
+  DEAL:{label:"DEAL",color:"#1a5c34",stamp:"APPROVED"},
+  FAIR:{label:"FAIR",color:"#8a6200",stamp:"NOTED"},
+  RIPPED:{label:"RIPPED OFF",color:"#c4392a",stamp:"REJECTED"},
+  LEGIT:{label:"LEGIT",color:"#1a5c34",stamp:"APPROVED"},
+  MIXED:{label:"MIXED BAG",color:"#8a6200",stamp:"NOTED"},
+  OVERHYPED:{label:"OVERHYPED",color:"#c4392a",stamp:"REJECTED"},
+};
+const REC={
+  PAY:{color:"#1a5c34",label:"PAY IT",stamp:"APPROVED"},
+  NEGOTIATE:{color:"#8a6200",label:"NEGOTIATE",stamp:"PENDING"},
+  WALK_AWAY:{color:"#c4392a",label:"WALK AWAY",stamp:"REJECTED"},
+};
+const TRENDS={rising:"↑ RISING",stable:"→ STABLE",falling:"↓ FALLING"};
+
+const store={
+  get:(k,fb)=>{try{return JSON.parse(localStorage.getItem(k))??fb}catch{return fb}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},
+};
+const getDemoPrice=(item,price,cur)=>{
+  const itemLower=item.toLowerCase().replace(/\s+/g,"");
+  const key=Object.keys(DEMO_PRICES).find(k=>itemLower.includes(k));
+  const base=DEMO_PRICES[key]||DEMO_PRICES.default;
+  if(cur==="INR"&&price&&key&&base.ranges){
+    const p=parseFloat(price);
+    const r=base.ranges[key];
+    if(r)return{...base,verdict:p<r[0]?"DEAL":p<=r[1]?"FAIR":"RIPPED"};
+  }
+  return base;
+};
+const getDemoVibe=biz=>{
+  const bizLower=biz.toLowerCase().replace(/\s+/g,"");
+  const key=Object.keys(DEMO_VIBES).find(k=>bizLower.includes(k));
+  return DEMO_VIBES[key]||DEMO_VIBES.default;
+};
+const getDemoPreBuy=(ask,item,cur)=>{
+  const p=parseFloat(ask);
+  const itemLower=item.toLowerCase().replace(/\s+/g,"");
+  const key=Object.keys(DEMO_PRICES).find(k=>itemLower.includes(k));
+  const base=DEMO_PRICES[key];
+  if(key&&cur==="INR"&&base?.ranges){
+    const r=base.ranges[key];
+    if(r){
+      const tier=p<r[0]?DEMO_PREBUY.low:p<=r[1]?DEMO_PREBUY.fair:DEMO_PREBUY.high;
+      return{...tier,price_range:`₹${r[0]}–${r[1]}`};
+    }
+  }
+  return{...DEMO_PREBUY.fair,price_range:base?.price_range||"Market rate varies"};
+};
+
+// ── 3D TILT ───────────────────────────────────────────────────────────────
+function TiltCard({children,style}){
+  const ref=useRef(null);
+  const onMove=useCallback(e=>{
+    const el=ref.current;if(!el)return;
+    const r=el.getBoundingClientRect();
+    const x=e.clientX-r.left,y=e.clientY-r.top;
+    const rx=-((y-r.height/2)/r.height)*10,ry=((x-r.width/2)/r.width)*12;
+    el.style.transform=`perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.02)`;
+  },[]);
+  const onLeave=useCallback(()=>{if(ref.current)ref.current.style.transform="perspective(800px) rotateX(0) rotateY(0) scale(1)";},[]);
+  return <div ref={ref} className="tilt-card paper" onMouseMove={onMove} onMouseLeave={onLeave} style={{transition:"transform .12s ease",...style}}>
+    <div style={{transform:"translateZ(14px)"}}>{children}</div>
+  </div>;
+}
+
+// ── PARALLAX STACK ────────────────────────────────────────────────────────
+function ParallaxStack(){
+  const [sy,setSy]=useState(0);
+  useEffect(()=>{const h=()=>setSy(window.scrollY);window.addEventListener("scroll",h,{passive:true});return()=>window.removeEventListener("scroll",h);},[]);
+  const docs=[
+    {r:-8,x:-60,y:0,z:1,label:"#4821",verdict:"RIPPED",item:"Cappuccino · CCD Bandra",amt:"INR 280"},
+    {r:5,x:50,y:-20,z:2,label:"#4822",verdict:"LEGIT",item:"Auto ride · Andheri",amt:"INR 65"},
+    {r:-2,x:10,y:-40,z:3,label:"#4823",verdict:"FAIR",item:"Biryani · Mohammed Ali Rd",amt:"INR 220"},
+    {r:9,x:-30,y:-60,z:4,label:"#4824",verdict:"RIPPED",item:"Hotel · Juhu Beach",amt:"USD 180"},
+    {r:-5,x:40,y:-80,z:5,label:"#4825",verdict:"DEAL",item:"Haircut · Kandivali",amt:"INR 150"},
+  ];
+  const sp=[0.04,0.07,0.1,0.14,0.18];
+  return <div style={{position:"relative",height:340,perspective:"1000px"}}>
+    {docs.map((d,i)=>{
+      const v=VC[d.verdict]||{stamp:"FILED",color:"#555"};
+      return <div key={i} style={{
+        position:"absolute",top:"50%",left:"50%",width:220,
+        transform:`translate(calc(-50% + ${d.x}px),calc(-50% + ${d.y-sy*sp[i]}px)) rotate(${d.r}deg)`,
+        zIndex:d.z,transition:"transform .05s linear",
+        background:"#faf6ea",
+        backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(43,38,32,.05) 20px)",
+        border:"1px solid #d8cda8",
+        boxShadow:`${2+i}px ${3+i}px ${6+i*2}px rgba(43,38,32,${.07+i*.02})`,
+        padding:"14px 16px",borderRadius:2,
+      }}>
+        <p className="mono" style={{fontSize:8,color:"#8a7d5c",letterSpacing:"2px",marginBottom:6}}>RECEIPT {d.label}</p>
+        <p style={{fontSize:11,color:"#2b2620",fontWeight:700,marginBottom:4}}>{d.item}</p>
+        <p className="mono" style={{fontSize:10,color:"#5a5142",marginBottom:10}}>{d.amt}</p>
+        <div style={{display:"inline-block",border:`2px solid ${v.color}`,color:v.color,fontSize:9,padding:"2px 8px",letterSpacing:"1.5px",transform:"rotate(-4deg)",fontFamily:"'Special Elite',monospace",opacity:.9}}>{v.stamp}</div>
+        <div style={{position:"absolute",bottom:8,right:10,fontSize:8,color:"#c4b896"}} className="mono">REALPRICE™</div>
+      </div>;
+    })}
+  </div>;
+}
+
+// ── COMPONENTS ────────────────────────────────────────────────────────────
+function Stamp({verdict,big}){
+  const v=VC[verdict]||{stamp:"FILED",color:"#555"};
+  return <div className="stamp" style={{display:"inline-block",border:`${big?4:3}px solid ${v.color}`,color:v.color,fontFamily:"'Special Elite',monospace",fontSize:big?22:14,padding:big?"8px 20px":"4px 12px",letterSpacing:"2px",transform:"rotate(-6deg)",textTransform:"uppercase",borderRadius:4,opacity:.92,background:"rgba(255,255,255,.4)"}}>{v.stamp}</div>;
+}
+function Chip({options,value,onChange}){
+  return <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+    {options.map(o=><button key={o} onClick={()=>onChange(o)} style={{padding:"6px 12px",fontSize:11,cursor:"pointer",border:value===o?"2px solid #1f1a14":"1.5px solid #c4b896",background:value===o?"#1f1a14":"transparent",color:value===o?"#f4f0e6":"#5a5142",fontWeight:value===o?700:400,fontFamily:"'Courier Prime',monospace",textTransform:"uppercase",letterSpacing:".5px"}}>{o}</button>)}
+  </div>;
+}
+function Spinner(){return <div style={{width:24,height:24,border:"3px solid #d8cda8",borderTop:"3px solid #c4392a",borderRadius:"50%",animation:"spin .7s linear infinite",margin:"0 auto"}}/>;}
+
+function ResultReceipt({result,mode,onShare,tips,onTip,copied,query}){
+  const [t,setT]=useState("");
+  if(!result)return null;
+  const v=VC[result.verdict]||{stamp:"FILED",color:"#555"};
+  const now=new Date();
+  return <div className="receipt-rise" style={{marginTop:28,background:"#faf6ea",backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(43,38,32,.04) 28px)",border:"1px solid #d8cda8",borderRadius:2,boxShadow:"6px 8px 32px rgba(43,38,32,.18),3px 4px 0 rgba(43,38,32,.08)",padding:"28px 26px",position:"relative"}}>
+    <div style={{position:"absolute",top:-1,left:0,right:0,height:10,background:"linear-gradient(135deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px,linear-gradient(45deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px",backgroundColor:"#e8e0c8"}}/>
+    <div style={{position:"absolute",top:14,right:18,fontSize:18,opacity:.4}}>✂️</div>
+    <div style={{textAlign:"center",marginBottom:18,borderBottom:"2px dashed #c4b896",paddingBottom:16}}>
+      <p className="mono" style={{fontSize:10,letterSpacing:"3px",color:"#8a7d5c",marginBottom:6}}>★ ★ ★ REALPRICE LEDGER ★ ★ ★</p>
+      <p style={{fontFamily:"'Special Elite',monospace",fontSize:16,color:"#1f1a14"}}>OFFICIAL VERDICT SLIP</p>
+      <p className="mono" style={{fontSize:10,color:"#8a7d5c",marginTop:4}}>{now.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})} · {now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
+    </div>
+    {query&&<div style={{marginBottom:16,fontSize:13,color:"#5a5142",lineHeight:1.8}} className="mono">
+      <p>ITEM ............... {query.item}</p>
+      <p>LOCATION ........... {query.loc}</p>
+      {query.price&&<p>AMOUNT FILED ........ {query.price}</p>}
+    </div>}
+    <div style={{display:"flex",justifyContent:"center",margin:"20px 0"}}><Stamp verdict={result.verdict} big/></div>
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:16}}>
+      {result.score!==undefined&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px",fontWeight:700}}>SCORE: {result.score}/10</span>}
+      {result.price_range&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>MARKET: {result.price_range}</span>}
+      {result.trend&&TRENDS[result.trend]&&<span className="mono" style={{fontSize:12,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>{TRENDS[result.trend]}</span>}
+    </div>
+    <p style={{fontSize:14,color:"#2b2620",lineHeight:1.8,textAlign:"center",fontStyle:"italic",marginBottom:18,padding:"0 8px"}}>"{result.summary}"</p>
+    <div className="perf" style={{margin:"4px -26px 18px"}}/>
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {result.details&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ CASE NOTES</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.details}</p></div>}
+      {result.tip&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ FILED RECOMMENDATION</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.tip}</p></div>}
+      {result.comparison&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ COMPARABLE FILINGS</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{result.comparison}</p></div>}
+      {tips.length>0&&<div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>▸ WITNESS STATEMENTS ({tips.length})</p>
+        {tips.map((tp,i)=><p key={i} style={{fontSize:13,color:"#5a5142",lineHeight:1.7,marginBottom:4}}>#{i+1} — {tp.text} <span className="mono" style={{fontSize:10,color:"#aaa"}}>[{tp.time}]</span></p>)}
+      </div>}
+    </div>
+    <div className="perf" style={{margin:"18px -26px"}}/>
+    <div style={{display:"flex",gap:8,marginBottom:10}}>
+      <input value={t} onChange={e=>setT(e.target.value)} placeholder="Add your witness statement…" onKeyDown={e=>{if(e.key==="Enter"&&t.trim()){onTip(t);setT("");}}} className="ledger-input" style={{flex:1}}/>
+      <button onClick={()=>{if(t.trim()){onTip(t);setT("");}}} style={{padding:"8px 16px",fontSize:12,fontWeight:700,border:"2px solid #1f1a14",background:"#1f1a14",color:"#f4f0e6",cursor:"pointer",textTransform:"uppercase",letterSpacing:"1px"}}>File</button>
+    </div>
+    <button onClick={onShare} className="btn-ghost" style={{width:"100%",padding:"11px 0",fontSize:13}}>{copied?"✓ COPIED TO CLIPBOARD":"⎘ SHARE THIS VERDICT"}</button>
+  </div>;
+}
+
+function Navbar({onTryNow}){
+  const [sc,setSc]=useState(false);
+  useEffect(()=>{const h=()=>setSc(window.scrollY>20);window.addEventListener("scroll",h);return()=>window.removeEventListener("scroll",h);},[]);
+  return <nav style={{position:"sticky",top:0,zIndex:100,background:sc?"#f4f0e6":"transparent",borderBottom:sc?"2px solid #1f1a14":"2px solid transparent",padding:"0 24px",transition:"all .25s"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:68}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontFamily:"'Special Elite',monospace",fontSize:21,color:"#1f1a14"}}>RealPrice™</span>
+        <span className="mono" style={{fontSize:9,border:"1.5px solid #c4392a",color:"#c4392a",padding:"2px 7px",letterSpacing:"1px"}}>DEMO ED.</span>
+      </div>
+      <button onClick={onTryNow} className="btn-stamp" style={{padding:"9px 20px",fontSize:12,boxShadow:"3px 3px 0 #c4392a"}}>Get Verdict →</button>
+    </div>
+  </nav>;
+}
+
+function Hero({onTryNow}){
+  return <section style={{padding:"60px 24px 70px",position:"relative",borderBottom:"2px dashed #c4b896",overflow:"hidden"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:48,alignItems:"center"}}>
+      <div>
+        <p className="mono" style={{fontSize:11,letterSpacing:"4px",color:"#8a7d5c",marginBottom:18}}>★ EST. 2025 · THE PUBLIC LEDGER OF HONEST PRICING ★</p>
+        <h1 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(32px,5.5vw,58px)",lineHeight:1.2,color:"#1f1a14",marginBottom:22}}>Did you pay fair?<br/>Or get <span style={{color:"#c4392a"}}>robbed?</span></h1>
+        <p style={{fontSize:"clamp(14px,2vw,16px)",color:"#5a5142",lineHeight:1.8,maxWidth:440,marginBottom:36,fontStyle:"italic"}}>"RealPrice files an honest verdict on every rupee, dollar, and dirham you spend. No fluff. No PR-speak. Just the receipt of truth."</p>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          <button onClick={onTryNow} className="btn-stamp" style={{fontSize:14,padding:"14px 28px"}}>File a Verdict →</button>
+          <a href="#how-it-works"><button className="btn-ghost" style={{fontSize:13,padding:"13px 24px"}}>How it works</button></a>
+        </div>
+        <div style={{display:"flex",marginTop:48,flexWrap:"wrap"}}>
+          {[{v:"61 ITEMS",l:"PRICE DATABASE"},{v:"33 BRANDS",l:"VIBE CHECKS"},{v:"4.8/5",l:"PUBLIC RATING"},{v:"FREE",l:"ALWAYS WILL BE"}].map((s,i)=>
+            <div key={i} style={{padding:"0 20px",borderRight:i<3?"1.5px dashed #c4b896":"none"}}>
+              <p style={{fontFamily:"'Special Elite',monospace",fontSize:18,color:"#1f1a14"}}>{s.v}</p>
+              <p className="mono" style={{fontSize:9,color:"#8a7d5c",letterSpacing:"1px",marginTop:2}}>{s.l}</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{display:"flex",justifyContent:"center"}}><ParallaxStack/></div>
+    </div>
+  </section>;
+}
+
+function Ticker(){
+  const items=[...TRENDING,...TRENDING];
+  return <div style={{background:"#1f1a14",padding:"14px 0",overflow:"hidden",borderBottom:"2px solid #c4392a"}}>
+    <div style={{display:"flex",width:"max-content",animation:"scrollMarquee 35s linear infinite"}}>
+      {items.map((t,i)=>{const v=VC[t.verdict]||{stamp:"FILED"};return <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"0 28px",borderRight:"1px solid rgba(255,255,255,.15)",whiteSpace:"nowrap"}}>
+        <span className="mono" style={{fontSize:12,color:"#f4f0e6"}}>{t.item} <span style={{color:"#8a7d5c"}}>— {t.location}</span></span>
+        <span className="mono" style={{fontSize:11,fontWeight:700,letterSpacing:"1px",color:v.color==="#1a5c34"?"#6ee7a8":v.color==="#c4392a"?"#fca5a5":"#fcd34d"}}>[{v.stamp}]</span>
+      </div>;})}
+    </div>
+  </div>;
+}
+
+function HowItWorks(){
+  const steps=[
+    {n:"CASE 01",title:"File your claim",desc:"Tell the ledger what you paid (or what they're asking), where, and for what. Every detail goes on record."},
+    {n:"CASE 02",title:"Evidence is gathered",desc:"We cross-reference market data — like a clerk checking the books before ruling."},
+    {n:"CASE 03",title:"The verdict is stamped",desc:"DEAL. FAIR. RIPPED OFF. No appeals process — just the unfiltered truth, delivered fast."},
+  ];
+  return <section id="how-it-works" style={{padding:"70px 24px",borderBottom:"2px dashed #c4b896"}}>
+    <div style={{maxWidth:920,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:48}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>HOW THE LEDGER WORKS</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(24px,4vw,36px)",color:"#1f1a14"}}>Three steps to a verdict</h2>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
+        {steps.map((s,i)=><TiltCard key={i} style={{padding:"28px 22px"}}>
+          <p className="mono" style={{fontSize:10,color:"#c4392a",letterSpacing:"2px",marginBottom:14,fontWeight:700}}>{s.n}</p>
+          <h3 style={{fontSize:16,color:"#1f1a14",marginBottom:10,fontFamily:"'Courier Prime',monospace",fontWeight:700}}>{s.title}</h3>
+          <p style={{fontSize:13,color:"#5a5142",lineHeight:1.8}}>{s.desc}</p>
+        </TiltCard>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function Features(){
+  const f=[
+    {tag:"EXHIBIT A",title:"Price Check",desc:"Already paid or about to? We benchmark against 61 real items and rule: fair or foul."},
+    {tag:"EXHIBIT B",title:"Vibe Check",desc:"Is the place worth the hype? We hold real verdicts on 33 major brands and chains."},
+    {tag:"EXHIBIT C",title:"Spending Ledger",desc:"Your full case history — every verdict on record, with spending patterns laid bare."},
+    {tag:"EXHIBIT D",title:"History",desc:"Every case you've filed, one tap to re-run. Your personal record of honest verdicts."},
+  ];
+  return <section id="features" style={{padding:"70px 24px",borderBottom:"2px dashed #c4b896"}}>
+    <div style={{maxWidth:1000,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:48}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>THE FULL DOCKET</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(24px,4vw,36px)",color:"#1f1a14"}}>Four ways to know the truth</h2>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:20}}>
+        {f.map((x,i)=><TiltCard key={i} style={{padding:"24px 20px"}}>
+          <p className="mono" style={{fontSize:10,color:"#c4392a",letterSpacing:"2px",marginBottom:12,fontWeight:700}}>{x.tag}</p>
+          <h3 style={{fontSize:16,color:"#1f1a14",marginBottom:10,fontFamily:"'Courier Prime',monospace",fontWeight:700}}>{x.title}</h3>
+          <p style={{fontSize:13,color:"#5a5142",lineHeight:1.8}}>{x.desc}</p>
+        </TiltCard>)}
+      </div>
+    </div>
+  </section>;
+}
+
+function AppTool(){
+  const [tab,setTab]=useState(0);
+  const [priceMode,setPriceMode]=useState("paid");
+  const [loading,setLoading]=useState(false);
+  const [result,setResult]=useState(null);
+  const [pbResult,setPbResult]=useState(null);
+  const [copied,setCopied]=useState(false);
+  const [pbCopied,setPbCopied]=useState(false);
+  const [tips,setTips]=useState([]);
+  const [rKey,setRKey]=useState(null);
+  const [history,setHistory]=useState(()=>store.get("rp_h6",[]));
+  const [lastQuery,setLastQuery]=useState(null);
+
+  const [item,setItem]=useState(""); const [cat,setCat]=useState("Food & Drink");
+  const [loc,setLoc]=useState(""); const [price,setPrice]=useState("");
+  const [cur,setCur]=useState("INR"); const [qty,setQty]=useState("1"); const [ctx,setCtx]=useState("");
+  const [pbLoc,setPbLoc]=useState(""); const [pbAsk,setPbAsk]=useState(""); const [pbCur,setPbCur]=useState("INR");
+  const [biz,setBiz]=useState(""); const [city,setCity]=useState("");
+  const [bType,setBType]=useState("Restaurant"); const [rSrc,setRSrc]=useState("All available");
+
+  useEffect(()=>{if(rKey)setTips(store.get(`rp_t6_${rKey}`,[]));else setTips([]);},[rKey]);
+  const saveH=e=>{const n=[e,...history].slice(0,30);setHistory(n);store.set("rp_h6",n);};
+  const addTip=t=>{if(!rKey)return;const tp={text:t,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};const u=[...tips,tp];setTips(u);store.set(`rp_t6_${rKey}`,u);};
+
+  const runCheck=()=>{
+    if(!item||!loc||!price)return;
+    setLoading(true);setResult(null);setRKey(null);
+    const total=(parseFloat(price)*parseFloat(qty||1)).toFixed(2);
+    const k=`price_${item}_${loc}`.replace(/\s+/g,"_").toLowerCase().slice(0,40);
+    setTimeout(()=>{
+      const data=getDemoPrice(item,price,cur);
+      setResult(data);setRKey(k);
+      setLastQuery({item,loc,price:`${cur} ${total}`});
+      saveH({label:`${item} · ${cur}${total}`,location:loc,verdict:data.verdict,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),mode:"price",raw:{item,location:loc,price,currency:cur,qty,category:cat}});
+      setLoading(false);
+    },1500);
+  };
+
+  const runPreBuy=()=>{
+    if(!item||!pbLoc||!pbAsk)return;
+    setLoading(true);setPbResult(null);
+    setTimeout(()=>{setPbResult(getDemoPreBuy(pbAsk,item,pbCur));setLoading(false);},1300);
+  };
+
+  const runVibeCheck=()=>{
+    if(!biz||!city)return;
+    setLoading(true);setResult(null);setRKey(null);
+    const k=`vibe_${biz}_${city}`.replace(/\s+/g,"_").toLowerCase().slice(0,40);
+    setTimeout(()=>{
+      const data=getDemoVibe(biz);
+      setResult(data);setRKey(k);
+      setLastQuery({item:biz,loc:city,price:null});
+      saveH({label:`${biz} · ${city}`,location:city,verdict:data.verdict,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),mode:"vibe",raw:{bizName:biz,bizCity:city}});
+      setLoading(false);
+    },1500);
+  };
+
+  const doShare=()=>{
+    if(!result)return;
+    const v=VC[result.verdict]||{stamp:"FILED"};
+    const txt=tab===0?`${item} in ${loc} — VERDICT: ${v.stamp}\n\n"${result.summary}"\n\nFiled on RealPrice`:`${biz} in ${city} — VERDICT: ${v.stamp} (${result.score}/10)\n\n"${result.summary}"\n\nFiled on RealPrice`;
+    navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
+  };
+
+  const TABS=[{id:0,l:"PRICE CHECK"},{id:1,l:"VIBE CHECK"},{id:2,l:"LEDGER"},{id:3,l:"HISTORY",badge:history.length||null}];
+  const pReady=!loading&&!!item&&!!loc&&!!price;
+  const pbReady=!loading&&!!item&&!!pbLoc&&!!pbAsk;
+  const vReady=!loading&&!!biz&&!!city;
+
+  return <section id="app-tool" style={{padding:"70px 24px",background:"#e8e0c8"}}>
+    <div style={{maxWidth:640,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:36}}>
+        <p className="mono" style={{fontSize:11,letterSpacing:"3px",color:"#8a7d5c",marginBottom:10}}>FILE YOUR CASE</p>
+        <h2 style={{fontFamily:"'Special Elite',monospace",fontSize:"clamp(22px,4vw,32px)",color:"#1f1a14"}}>Submit for judgment</h2>
+      </div>
+
+      <div style={{display:"flex",overflowX:"auto",borderBottom:"3px solid #1f1a14"}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setResult(null);setPbResult(null);}} style={{
+          flex:"0 0 auto",padding:"11px 16px",fontSize:11,fontWeight:tab===t.id?700:400,
+          border:"none",borderTop:"2px solid #1f1a14",borderLeft:"2px solid #1f1a14",
+          borderRight:tab===t.id?"2px solid #1f1a14":"none",
+          cursor:"pointer",whiteSpace:"nowrap",position:"relative",letterSpacing:"1px",
+          background:tab===t.id?"#faf6ea":"#d8cda8",color:"#1f1a14",
+          marginBottom:tab===t.id?-3:0,fontFamily:"'Courier Prime',monospace"}}>
+          {t.l}{t.badge?<span style={{marginLeft:6,background:"#c4392a",color:"#fff",fontSize:9,padding:"1px 5px"}}>{t.badge}</span>:null}
+        </button>)}
+      </div>
+
+      <div className="paper" style={{padding:"28px 26px",borderTop:"none"}}>
+
+        {tab===0&&<div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <div style={{border:"2px solid #1f1a14",display:"flex",overflow:"hidden"}}>
+            <button onClick={()=>{setPriceMode("paid");setResult(null);setPbResult(null);}} style={{
+              flex:1,padding:"12px 8px",fontSize:11,fontWeight:priceMode==="paid"?700:400,
+              border:"none",cursor:"pointer",letterSpacing:"1px",textTransform:"uppercase",
+              fontFamily:"'Courier Prime',monospace",transition:"all .15s",
+              background:priceMode==="paid"?"#1f1a14":"transparent",
+              color:priceMode==="paid"?"#f4f0e6":"#5a5142"}}>✓ Already Paid</button>
+            <div style={{width:2,background:"#1f1a14"}}/>
+            <button onClick={()=>{setPriceMode("prebuy");setResult(null);setPbResult(null);}} style={{
+              flex:1,padding:"12px 8px",fontSize:11,fontWeight:priceMode==="prebuy"?700:400,
+              border:"none",cursor:"pointer",letterSpacing:"1px",textTransform:"uppercase",
+              fontFamily:"'Courier Prime',monospace",transition:"all .15s",
+              background:priceMode==="prebuy"?"#c4392a":"transparent",
+              color:priceMode==="prebuy"?"#f4f0e6":"#5a5142"}}>? About to Pay</button>
+          </div>
+
+          <div style={{background:priceMode==="paid"?"rgba(43,38,32,.04)":"rgba(196,57,42,.04)",border:`1.5px dashed ${priceMode==="paid"?"#c4b896":"#c4392a"}`,padding:"10px 14px"}}>
+            <p style={{fontSize:12,color:priceMode==="paid"?"#5a5142":"#8a2e22",fontStyle:"italic",lineHeight:1.6}}>
+              {priceMode==="paid"?'"You already paid. Tell us what it cost — we\'ll rule if you were charged fair."':'"Still at the counter? Tell us what they\'re asking — we\'ll tell you whether to pay, negotiate, or walk."'}
+            </p>
+          </div>
+
+          <div>
+            <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:8}}>▸ COMMON FILINGS</p>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
+              {QUICK.map((q,i)=><button key={i} onClick={()=>{setItem(q.item);setCat(q.cat);setCur(q.cur);setPbCur(q.cur);setLoc(q.loc);setPbLoc(q.loc);setPrice(q.price);setPbAsk(q.price);setQty("1");setCtx("");setResult(null);setPbResult(null);}} style={{flexShrink:0,padding:"6px 13px",fontSize:11,border:"1.5px solid #c4b896",background:"#ece5d3",color:"#5a5142",cursor:"pointer",whiteSpace:"nowrap",letterSpacing:"0.5px"}}>{q.label}</button>)}
+            </div>
+          </div>
+
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>ITEM IN QUESTION</p>
+            <input className="ledger-input" placeholder="e.g. Cutting chai, Auto ride, Hotel night" value={item} onChange={e=>setItem(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>CATEGORY</p>
+            <Chip options={CATEGORIES} value={cat} onChange={setCat}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>LOCATION</p>
+            <input className="ledger-input" placeholder="e.g. Bandra Mumbai, Times Square NYC"
+              value={priceMode==="paid"?loc:pbLoc}
+              onChange={e=>priceMode==="paid"?setLoc(e.target.value):setPbLoc(e.target.value)}/></div>
+
+          <div style={{display:"flex",gap:14}}>
+            <div style={{flex:2}}>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>{priceMode==="paid"?"AMOUNT PAID":"THEY'RE ASKING"}</p>
+              <div style={{display:"flex",gap:8}}>
+                <select value={priceMode==="paid"?cur:pbCur} onChange={e=>priceMode==="paid"?setCur(e.target.value):setPbCur(e.target.value)} className="ledger-input" style={{width:70,flexShrink:0}}>
+                  {CURRENCIES.map(c=><option key={c}>{c}</option>)}
+                </select>
+                <input className="ledger-input" type="number" placeholder="0.00"
+                  value={priceMode==="paid"?price:pbAsk}
+                  onChange={e=>priceMode==="paid"?setPrice(e.target.value):setPbAsk(e.target.value)}/>
+              </div>
+            </div>
+            {priceMode==="paid"&&<div style={{width:70}}>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>QTY</p>
+              <input className="ledger-input" type="number" min="1" value={qty} onChange={e=>setQty(e.target.value)}/>
+            </div>}
+          </div>
+
+          {priceMode==="paid"&&price&&qty&&<p className="mono" style={{fontSize:12,color:"#c4392a",fontWeight:700}}>TOTAL ON RECORD: {cur} {(parseFloat(price||0)*parseFloat(qty||1)).toFixed(2)}</p>}
+
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>ADDITIONAL NOTES <span style={{fontWeight:400}}>(optional)</span></p>
+            <input className="ledger-input" placeholder="e.g. tourist area, airport, late night" value={ctx} onChange={e=>setCtx(e.target.value)}/></div>
+
+          <button onClick={priceMode==="paid"?runCheck:runPreBuy}
+            disabled={priceMode==="paid"?!pReady:!pbReady}
+            className="btn-stamp"
+            style={{opacity:(priceMode==="paid"?pReady:pbReady)?1:.4,cursor:(priceMode==="paid"?pReady:pbReady)?"pointer":"not-allowed",marginTop:6,background:priceMode==="prebuy"?"#c4392a":"#1f1a14",boxShadow:priceMode==="prebuy"?"4px 4px 0 #1f1a14":"4px 4px 0 #c4392a"}}>
+            {loading?"Reviewing case…":priceMode==="paid"?"File for Verdict →":"Should I Pay This? →"}
+          </button>
+          {loading&&<div style={{textAlign:"center",padding:"14px 0"}}><Spinner/><p className="mono" style={{fontSize:11,color:"#8a7d5c",marginTop:10,letterSpacing:"1px"}}>CHECKING MARKET RECORDS…</p></div>}
+
+          {priceMode==="prebuy"&&pbResult&&!loading&&(()=>{
+            const rc=REC[pbResult.recommendation]||{color:"#555",label:pbResult.recommendation,stamp:"FILED"};
+            return <div className="fade paper" style={{padding:"24px",marginTop:6,boxShadow:"4px 6px 20px rgba(43,38,32,.14)",position:"relative"}}>
+              <div style={{position:"absolute",top:-1,left:0,right:0,height:10,background:"linear-gradient(135deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px,linear-gradient(45deg,transparent 50%,#faf6ea 50%) 0 0/14px 14px",backgroundColor:"#e8e0c8"}}/>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:14}}>
+                <div className="stamp" style={{border:`3px solid ${rc.color}`,color:rc.color,fontFamily:"'Special Elite',monospace",fontSize:18,padding:"6px 16px",letterSpacing:"2px",transform:"rotate(-6deg)",background:"rgba(255,255,255,.4)"}}>{rc.stamp}</div>
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:14}}>
+                <span className="mono" style={{fontSize:11,border:"1.5px solid #1f1a14",padding:"3px 10px",fontWeight:700}}>{rc.label}</span>
+                {pbResult.price_range&&<span className="mono" style={{fontSize:11,border:"1.5px solid #1f1a14",padding:"3px 10px"}}>MARKET: {pbResult.price_range}</span>}
+              </div>
+              <p style={{fontSize:14,textAlign:"center",fontStyle:"italic",color:"#2b2620",marginBottom:16,lineHeight:1.7}}>"{pbResult.one_liner}"</p>
+              <div className="perf" style={{margin:"0 -24px 16px"}}/>
+              {pbResult.negotiation_tip&&<div style={{marginBottom:10}}><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ WHAT TO SAY</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{pbResult.negotiation_tip}</p></div>}
+              {pbResult.alternative&&<div style={{marginBottom:14}}><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:4}}>▸ SMARTER MOVE</p><p style={{fontSize:13,color:"#5a5142",lineHeight:1.7}}>{pbResult.alternative}</p></div>}
+              <button onClick={()=>{const rc2=REC[pbResult.recommendation]||{label:pbResult.recommendation};navigator.clipboard.writeText(`${item} in ${pbLoc} — VERDICT: ${rc2.stamp}\n"${pbResult.one_liner}"\n\nFiled on RealPrice`).then(()=>{setPbCopied(true);setTimeout(()=>setPbCopied(false),2500);});}} className="btn-ghost" style={{width:"100%",padding:"10px 0",fontSize:12}}>{pbCopied?"✓ COPIED":"⎘ SHARE"}</button>
+            </div>;
+          })()}
+        </div>}
+
+        {tab===1&&<div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>BUSINESS NAME</p><input className="ledger-input" placeholder="e.g. Social, Starbucks, Taj Hotel" value={biz} onChange={e=>setBiz(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>BUSINESS TYPE</p><Chip options={BIZ_TYPES} value={bType} onChange={setBType}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>CITY</p><input className="ledger-input" placeholder="e.g. Mumbai, London, New York" value={city} onChange={e=>setCity(e.target.value)}/></div>
+          <div><p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:6}}>REVIEW SOURCES</p><Chip options={REVIEW_SRC} value={rSrc} onChange={setRSrc}/></div>
+          <button onClick={runVibeCheck} disabled={!vReady} className="btn-stamp" style={{opacity:vReady?1:.4,cursor:vReady?"pointer":"not-allowed",marginTop:6}}>{loading?"Reviewing testimony…":"File for Verdict →"}</button>
+          {loading&&<div style={{textAlign:"center",padding:"14px 0"}}><Spinner/><p className="mono" style={{fontSize:11,color:"#8a7d5c",marginTop:10,letterSpacing:"1px"}}>READING REVIEWS ON FILE…</p></div>}
+        </div>}
+
+        {tab===2&&(history.length<2
+          ?<div style={{textAlign:"center",padding:"3rem 1rem"}}><p style={{fontSize:40,marginBottom:14}}>📒</p><p style={{fontSize:14,color:"#8a7d5c",fontStyle:"italic"}}>File at least 2 cases to unlock your ledger summary.</p></div>
+          :(()=>{
+            const total=history.length,deals=history.filter(h=>["DEAL","LEGIT"].includes(h.verdict)).length,ripped=history.filter(h=>["RIPPED","OVERHYPED"].includes(h.verdict)).length,fair=total-deals-ripped;
+            const dPct=Math.round((deals/total)*100),rPct=Math.round((ripped/total)*100);
+            const catMap={};
+            history.filter(h=>h.mode==="price"&&h.raw?.category).forEach(h=>{const c=h.raw.category;catMap[c]=catMap[c]||{t:0,r:0};catMap[c].t++;if(h.verdict==="RIPPED")catMap[c].r++;});
+            const topC=Object.entries(catMap).sort((a,b)=>b[1].t-a[1].t)[0];
+            const topR=Object.entries(catMap).sort((a,b)=>b[1].r-a[1].r)[0];
+            const Bar=({l,v,c})=><div style={{marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span className="mono" style={{fontSize:11,color:"#5a5142"}}>{l}</span><span className="mono" style={{fontSize:12,fontWeight:700,color:c}}>{v}</span></div>
+              <div style={{background:"#d8cda8",height:8}}><div style={{height:"100%",background:c,width:`${Math.round((v/Math.max(total,1))*100)}%`,transition:"width .6s ease"}}/></div>
+            </div>;
+            return <div>
+              <p className="mono" style={{fontSize:10,fontWeight:700,color:"#8a7d5c",letterSpacing:"1px",marginBottom:16}}>▸ CASE SUMMARY ON RECORD</p>
+              <div style={{display:"flex",gap:0,marginBottom:20,border:"2px solid #1f1a14"}}>
+                {[{v:total,l:"TOTAL FILED"},{v:`${dPct}%`,l:"DEALS"},{v:`${rPct}%`,l:"RIPPED"}].map((s,i)=><div key={i} style={{flex:1,textAlign:"center",padding:"14px 6px",borderRight:i<2?"2px solid #1f1a14":"none"}}>
+                  <p style={{fontFamily:"'Special Elite',monospace",fontSize:20,color:"#1f1a14"}}>{s.v}</p>
+                  <p className="mono" style={{fontSize:9,color:"#8a7d5c",marginTop:3,letterSpacing:"1px"}}>{s.l}</p>
+                </div>)}
+              </div>
+              <Bar l="DEALS / LEGIT" v={deals} c="#1a5c34"/>
+              <Bar l="FAIR" v={fair} c="#8a6200"/>
+              <Bar l="RIPPED / OVERHYPED" v={ripped} c="#c4392a"/>
+              {topC&&<p style={{fontSize:13,color:"#5a5142",marginTop:16,lineHeight:1.7}}>▸ Most filed: <b style={{color:"#1f1a14"}}>{topC[0]}</b> ({topC[1].t} cases)</p>}
+              {topR&&topR[1].r>0&&<p style={{fontSize:13,color:"#5a5142",marginTop:6,lineHeight:1.7}}>▸ Most disputed: <b style={{color:"#c4392a"}}>{topR[0]}</b> ({topR[1].r} ripped)</p>}
+            </div>;
+          })()
+        )}
+
+        {tab===3&&(history.length===0
+          ?<div style={{textAlign:"center",padding:"3rem 1rem"}}><p style={{fontSize:40,marginBottom:14}}>🗂️</p><p style={{fontSize:14,color:"#8a7d5c",fontStyle:"italic"}}>No cases filed yet. Try a common filing above.</p></div>
+          :<div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <p className="mono" style={{fontSize:11,color:"#8a7d5c"}}>{history.length} CASES ON FILE</p>
+              <button onClick={()=>{setHistory([]);store.set("rp_h6",[]);}} className="mono" style={{fontSize:11,color:"#c4392a",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>CLEAR LEDGER</button>
+            </div>
+            {history.map((h,i)=>{
+              const v=VC[h.verdict]||{label:h.verdict,color:"#555"};
+              return <div key={i} onClick={()=>{if(h.mode==="vibe"){setBiz(h.raw.bizName);setCity(h.raw.bizCity);setTab(1);}else{setItem(h.raw.item);setLoc(h.raw.location);setPbLoc(h.raw.location);setPrice(h.raw.price);setCur(h.raw.currency);setQty(h.raw.qty||"1");setCat(h.raw.category);setTab(0);}setResult(null);setPbResult(null);setRKey(null);}} style={{padding:"12px 4px",borderBottom:"1.5px dashed #c4b896",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:10}}>
+                <div style={{flex:1}}><p style={{fontSize:13,color:"#1f1a14",fontWeight:700}}>{h.label}</p><p className="mono" style={{fontSize:10,color:"#8a7d5c",marginTop:2}}>{h.location} · {h.time}</p></div>
+                <span className="mono" style={{fontSize:10,fontWeight:700,color:v.color,border:`1.5px solid ${v.color}`,padding:"2px 8px"}}>{v.label}</span>
+              </div>;
+            })}
+          </div>
+        )}
+      </div>
+
+      {tab===0&&priceMode==="paid"&&!loading&&<ResultReceipt result={result} mode="price" onShare={doShare} copied={copied} tips={tips} onTip={addTip} query={lastQuery}/>}
+      {tab===1&&!loading&&<ResultReceipt result={result} mode="vibe" onShare={doShare} copied={copied} tips={tips} onTip={addTip} query={lastQuery}/>}
+    </div>
+  </section>;
+}
+
+function Footer(){
+  return <footer style={{background:"#1f1a14",padding:"48px 24px 28px",color:"#a89c7d"}}>
+    <div style={{maxWidth:1000,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:30,marginBottom:36}}>
+        <div>
+          <p style={{fontFamily:"'Special Elite',monospace",fontSize:20,color:"#f4f0e6",marginBottom:8}}>RealPrice™</p>
+          <p style={{fontSize:13,lineHeight:1.8,maxWidth:280,fontStyle:"italic"}}>"No fluff. Just the truth about prices and places — filed honestly, anywhere in the world."</p>
+        </div>
+        <div style={{display:"flex",gap:48,flexWrap:"wrap"}}>
+          <div><p className="mono" style={{fontSize:10,color:"#6b5f47",letterSpacing:"1px",marginBottom:12}}>THE DOCKET</p>
+            {["Price Check","Vibe Check","Spending Ledger","History"].map(l=><p key={l} style={{fontSize:13,color:"#a89c7d",marginBottom:9,cursor:"pointer"}}>{l}</p>)}
+          </div>
+          <div><p className="mono" style={{fontSize:10,color:"#6b5f47",letterSpacing:"1px",marginBottom:12}}>RECORDS OFFICE</p>
+            {["About","Blog","Contact","Privacy Policy"].map(l=><p key={l} style={{fontSize:13,color:"#a89c7d",marginBottom:9,cursor:"pointer"}}>{l}</p>)}
+          </div>
+        </div>
+      </div>
+      <div style={{borderTop:"1px dashed #4a4030",paddingTop:20,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <p className="mono" style={{fontSize:11}}>© 2025 REALPRICE. ALL RECORDS RESERVED.</p>
+        <p className="mono" style={{fontSize:11}}>FILED WITH ❤️ IN MUMBAI, INDIA</p>
+      </div>
+    </div>
+  </footer>;
+}
+
+function App(){
+  const toolRef=useRef(null);
+  const scrollToTool=()=>toolRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
+  return <div>
+    <Navbar onTryNow={scrollToTool}/>
+    <Hero onTryNow={scrollToTool}/>
+    <Ticker/>
+    <HowItWorks/>
+    <Features/>
+    <div ref={toolRef}><AppTool/></div>
+    <Footer/>
+  </div>;
+}
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
